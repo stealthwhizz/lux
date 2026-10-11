@@ -1,0 +1,34 @@
+# luxd as a system service. See docs/self-hosting.md ("Without containers").
+[Unit]
+Description=Lux control plane (luxd)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lux
+Group=lux
+EnvironmentFile=/etc/lux/luxd.env
+Environment=LUX_MODE=server LUX_DATA_DIR=/var/lib/lux
+ExecStart=/usr/local/bin/luxd serve
+Restart=on-failure
+RestartSec=5
+# Stop only luxd: agent runs keep going and the next luxd re-attaches to them.
+KillMode=process
+TimeoutStopSec=30
+
+StateDirectory=lux
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

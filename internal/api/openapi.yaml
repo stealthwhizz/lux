@@ -1,0 +1,919 @@
+openapi: 3.1.0
+info:
+  title: Lux API
+  version: "1"
+  description: |
+    Control-plane API for Lux. All `/v1/w/{ws}/...` endpoints require a bearer
+    token (`Authorization: Bearer lux_pat_...`). A workspace the caller is not a
+    member of returns 404. Errors use `{"error": {"code", "message", "details"}}`.
+  license:
+    name: MIT
+servers:
+  - url: http://127.0.0.1:7878
+    description: Local luxd
+security:
+  - bearer: []
+tags:
+  - name: system
+  - name: identity
+  - name: agents
+  - name: tasks
+  - name: conversations
+  - name: approvals
+  - name: audit
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      summary: Liveness. The process is up; does not check the database.
+      security: []
+      responses:
+        "200": { description: Alive }
+  /readyz:
+    get:
+      tags: [system]
+      summary: Readiness. Database reachable, schema current, event listener connected.
+      security: []
+      responses:
+        "200": { description: Ready }
+        "503": { description: Not ready; `checks` says why }
+  /v1/status:
+    get:
+      tags: [system]
+      summary: Version, mode, component and executor status. Contains no workspace data.
+      security: []
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+  /v1/openapi.yaml:
+    get:
+      tags: [system]
+      summary: This document.
+      security: []
+      responses:
+        "200": { description: OpenAPI document }
+  /v1/me:
+    get:
+      tags: [identity]
+      summary: The caller and the workspaces they belong to.
+      responses:
+        "200":
+          description: Caller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id: { type: string }
+                  username: { type: string }
+                  org_id: { type: string }
+                  workspaces:
+                    type: array
+                    items: { $ref: "#/components/schemas/Workspace" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /v1/tokens:
+    post:
+      tags: [identity]
+      summary: Create an API token for the caller. The secret is returned only once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 100 }
+                expires_in_days: { type: integer, minimum: 0, maximum: 3650, description: "0 = never" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  name: { type: string }
+                  expires_at: { type: [string, "null"], format: date-time }
+  /v1/tokens/{id}:
+    delete:
+      tags: [identity]
+      summary: Revoke one of the caller's tokens.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/w/{ws}/agents:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [agents]
+      summary: List agents with their current revision and task counts. Needs `read`.
+      responses:
+        "200":
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents: { type: array, items: { $ref: "#/components/schemas/Agent" } }
+    post:
+      tags: [agents]
+      summary: Import an OpenGAP agent repository. Needs `agent.manage`.
+      description: |
+        Fetches the repository, pins the ref to a commit and validates it. An
+        invalid repository returns 422 with the validation report and is not
+        stored. Local paths are accepted only when the server allows them
+        (always in local mode).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImportAgent" }
+      responses:
+        "201":
+          description: Imported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: "#/components/schemas/Agent" }
+                  report: { $ref: "#/components/schemas/ValidationReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: An agent with this slug exists }
+        "422": { description: Fetch failed (`fetch_failed`) or the repository is invalid (`invalid_agent`, report in details) }
+  /v1/w/{ws}/agents/validate:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    post:
+      tags: [agents]
+      summary: Fetch and validate a repository without importing it. Needs `agent.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgentSource" }
+      responses:
+        "200":
+          description: Inspection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commit_sha: { type: string }
+                  report: { $ref: "#/components/schemas/ValidationReport" }
+  /v1/w/{ws}/agents/{agent}:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/agent" }]
+    get:
+      tags: [agents]
+      summary: Get an agent by id or slug. Needs `read`.
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Agent" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [agents]
+      summary: Enable or disable an agent. Needs `agent.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                disabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Agent" }
+  /v1/w/{ws}/agents/{agent}/sync:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/agent" }]
+    post:
+      tags: [agents]
+      summary: Fetch the agent's source again and record a new revision. Needs `agent.manage`.
+      description: An invalid revision is stored for history but does not replace the current one.
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agent: { $ref: "#/components/schemas/Agent" }
+                  revision: { $ref: "#/components/schemas/Revision" }
+                  report: { $ref: "#/components/schemas/ValidationReport" }
+                  changed: { type: boolean, description: The current revision changed }
+  /v1/w/{ws}/agents/{agent}/revisions:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/agent" }]
+    get:
+      tags: [agents]
+      summary: List an agent's revisions, newest first. Needs `read`.
+      responses:
+        "200":
+          description: Revisions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions: { type: array, items: { $ref: "#/components/schemas/Revision" } }
+  /v1/w/{ws}/tasks:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [tasks]
+      summary: List tasks, newest first. Needs `read`.
+      parameters:
+        - { name: agent, in: query, schema: { type: string }, description: Agent id or slug }
+        - { name: state, in: query, schema: { type: string }, description: Comma-separated states }
+        - { name: before, in: query, schema: { type: string, format: date-time }, description: Only tasks created before this time (paging) }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 50 } }
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks: { type: array, items: { $ref: "#/components/schemas/Task" } }
+    post:
+      tags: [tasks]
+      summary: Create a task for an agent. Needs `task.run`.
+      description: |
+        The task is persisted as `queued` before the response is sent and is
+        pinned to the agent's current revision. With an `Idempotency-Key`, a
+        repeated request returns the original task with status 200.
+      parameters:
+        - { name: Idempotency-Key, in: header, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent, prompt]
+              additionalProperties: false
+              properties:
+                agent: { type: string, description: Agent id or slug }
+                prompt: { type: string, maxLength: 100000 }
+                timeout_seconds: { type: integer, minimum: 1, description: "Default: agent.yaml runtime.timeout, else 3600; capped by workspace policy" }
+                max_attempts: { type: integer, minimum: 1, maximum: 5, default: 1 }
+                repository: { type: string, description: "Repository (name or id) to work on; it is checked out at ./repo in the agent directory" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "200":
+          description: Existing task for this Idempotency-Key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "403": { description: "Role lacks task.run, or `policy_denied`: the agent runs code at load time and the workspace policy forbids it" }
+        "409": { description: "`agent_disabled`, `no_valid_revision` or `executor_unavailable`" }
+  /v1/w/{ws}/tasks/{task}:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }]
+    get:
+      tags: [tasks]
+      summary: Get a task. Needs `read`.
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+  /v1/w/{ws}/tasks/{task}/cancel:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }]
+    post:
+      tags: [tasks]
+      summary: Request cancellation. Own tasks need `task.run`; others need `task.cancel_any`.
+      description: A queued task becomes `cancelled`; an active one becomes `cancelling` until its run stops. Finished tasks are returned unchanged.
+      responses:
+        "200":
+          description: Task after the request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+  /v1/w/{ws}/tasks/{task}/events:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }]
+    get:
+      tags: [tasks]
+      summary: List a task's events after a cursor. Needs `read`.
+      parameters:
+        - { name: after, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 2000, default: 1000 } }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events: { type: array, items: { $ref: "#/components/schemas/Event" } }
+                  task_state: { $ref: "#/components/schemas/TaskState" }
+  /v1/w/{ws}/tasks/{task}/events/stream:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }]
+    get:
+      tags: [tasks]
+      summary: Stream a task's events (Server-Sent Events). Needs `read`.
+      description: |
+        Starts after `?after=N` or the `Last-Event-ID` header. Messages:
+        `task_event` (id = seq, data = Event), `end` (task finished and all
+        events sent), `error`. Idle streams get a comment every 15 seconds.
+      parameters:
+        - { name: after, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: Last-Event-ID, in: header, schema: { type: string } }
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream: {}
+  /v1/w/{ws}/events/stream:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [tasks]
+      summary: Workspace change feed (Server-Sent Events). Needs `read`.
+      description: |
+        Messages: `ready`, `task_updated` (`{task_id, seq}`; no content, fetch
+        the task), `resync` (notices may have been missed; refetch).
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream: {}
+  /v1/w/{ws}/conversations:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [conversations]
+      summary: List conversations, most recently active first. Needs `read`.
+      parameters:
+        - { name: agent, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations: { type: array, items: { $ref: "#/components/schemas/Conversation" } }
+    post:
+      tags: [conversations]
+      summary: Start a conversation with an agent, optionally sending the first message. Needs `task.run`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent]
+              additionalProperties: false
+              properties:
+                agent: { type: string }
+                title: { type: string, maxLength: 200 }
+                message: { type: string }
+      responses:
+        "201":
+          description: Created (with `message` and `task` when a first message was sent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation: { $ref: "#/components/schemas/Conversation" }
+                  message: { $ref: "#/components/schemas/Message" }
+                  task: { $ref: "#/components/schemas/Task" }
+  /v1/w/{ws}/conversations/{conversation}:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { name: conversation, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [conversations]
+      summary: A conversation with all its messages. Needs `read`.
+      responses:
+        "200":
+          description: Conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation: { $ref: "#/components/schemas/Conversation" }
+                  messages: { type: array, items: { $ref: "#/components/schemas/Message" } }
+  /v1/w/{ws}/conversations/{conversation}/messages:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { name: conversation, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [conversations]
+      summary: Send a message. Creates a task with the same checks as POST /tasks. Needs `task.run`.
+      description: |
+        Earlier turns (up to 20 messages / 32 KB) are given to the agent as
+        context. While the agent is working on a turn, a new message is
+        refused with 409 `turn_in_progress`. The agent's reply is added as an
+        assistant message when the task ends. Supports `Idempotency-Key`.
+      parameters:
+        - { name: Idempotency-Key, in: header, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              additionalProperties: false
+              properties:
+                content: { type: string, maxLength: 100000 }
+                timeout_seconds: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Message and the task working on it
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { $ref: "#/components/schemas/Message" }
+                  task: { $ref: "#/components/schemas/Task" }
+        "409": { description: "`turn_in_progress`, `agent_disabled` or `no_valid_revision`" }
+  /v1/w/{ws}/approvals:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [approvals]
+      summary: List approvals, newest first. Needs `read`.
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [pending, approved, rejected, expired, cancelled] } }
+        - { name: task, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvals: { type: array, items: { $ref: "#/components/schemas/Approval" } }
+  /v1/w/{ws}/approvals/{approval}:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { name: approval, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [approvals]
+      summary: Get an approval. Needs `read`.
+      responses:
+        "200":
+          description: Approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+  /v1/w/{ws}/approvals/{approval}/decision:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { name: approval, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [approvals]
+      summary: Approve or reject. Needs `approval.decide`; maker-checker applies (see docs/policy.md).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              additionalProperties: false
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                note: { type: string, maxLength: 2000 }
+      responses:
+        "200":
+          description: Decided approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "403": { description: "Role lacks approval.decide, or `maker_checker`: you created the task" }
+        "409": { description: Already decided, expired or cancelled }
+  /v1/w/{ws}/repositories:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [repositories]
+      summary: Repositories tasks can work on. Needs `read`.
+      responses:
+        "200":
+          description: Repositories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  repositories: { type: array, items: { $ref: "#/components/schemas/Repository" } }
+    post:
+      tags: [repositories]
+      summary: Register a repository. Needs `repo.manage`. luxd fetches it first, so a bad URL or credential fails here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, source_url]
+              additionalProperties: false
+              properties:
+                name: { type: string, pattern: "^[a-z][a-z0-9-]{0,62}$" }
+                source_kind: { type: string, enum: [git, local], default: git }
+                source_url: { type: string }
+                default_branch: { type: string, description: "Branch tasks start from and pull requests target; default: the remote's HEAD" }
+                test_command: { type: string, maxLength: 500, description: Told to the agent; the agent runs it through its policy-checked tools }
+                credential: { type: string, description: "Name of a git credential configured on the server" }
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repository" }
+        "400": { description: "`invalid_source` or `unknown_credential`" }
+        "409": { description: Name already used }
+        "422": { description: "`fetch_failed`: luxd could not fetch the repository" }
+  /v1/w/{ws}/repositories/{repo}:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { name: repo, in: path, required: true, schema: { type: string } }]
+    delete:
+      tags: [repositories]
+      summary: Remove a repository. Needs `repo.manage`. Unpublished changes for it can no longer be published.
+      responses:
+        "204": { description: Removed }
+  /v1/w/{ws}/changes:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [changes]
+      summary: Change sets in the workspace, newest first (the review queue). Needs `read`.
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [proposed, publishing, published, discarded] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Change sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes: { type: array, items: { $ref: "#/components/schemas/Change" } }
+  /v1/w/{ws}/tasks/{task}/changes:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }]
+    get:
+      tags: [changes]
+      summary: What the task's run changed in its repository and in the agent's memory. Needs `read`.
+      responses:
+        "200":
+          description: Change sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes: { type: array, items: { $ref: "#/components/schemas/Change" } }
+  /v1/w/{ws}/tasks/{task}/changes/{target}/patch:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }, { $ref: "#/components/parameters/target" }]
+    get:
+      tags: [changes]
+      summary: The patch exactly as it would be published (git diff format). Needs `read`.
+      responses:
+        "200": { description: Patch, content: { text/plain: { schema: { type: string } } } }
+        "409": { description: "`patch_too_large`: only file statistics were kept" }
+  /v1/w/{ws}/tasks/{task}/changes/{target}/publish:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }, { $ref: "#/components/parameters/target" }]
+    post:
+      tags: [changes]
+      summary: Push the stored patch to a new branch `lux/<task>` (memory changes go to `lux/<task>-memory` in the agent's repository). Needs `approval.decide`; maker-checker applies.
+      description: |
+        Only the reviewed patch is published, applied to the commit the run
+        started from; nothing the agent did after the run ended is included.
+        luxd never force-pushes. With `pull_request`, a GitHub pull request is
+        opened (https://github.com remotes with a credential only).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                pull_request: { type: boolean, default: false }
+                title: { type: string, maxLength: 200, description: "Commit and pull request title; default: the prompt's first line" }
+      responses:
+        "200":
+          description: Published. `pull_request_error` is set when the push worked but the pull request could not be opened.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  change: { $ref: "#/components/schemas/Change" }
+                  pull_request_error: { type: string }
+        "403": { description: "Role lacks approval.decide, or `maker_checker`: you created the task" }
+        "409": { description: "`task_not_succeeded`, `patch_too_large`, already published or discarded" }
+        "502": { description: "`publish_failed`: the push was rejected (for example, the branch exists)" }
+  /v1/w/{ws}/tasks/{task}/changes/{target}/discard:
+    parameters: [{ $ref: "#/components/parameters/ws" }, { $ref: "#/components/parameters/task" }, { $ref: "#/components/parameters/target" }]
+    post:
+      tags: [changes]
+      summary: Decline proposed changes. Needs `approval.decide`.
+      responses:
+        "200":
+          description: Discarded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Change" }
+  /v1/w/{ws}/audit:
+    parameters: [{ $ref: "#/components/parameters/ws" }]
+    get:
+      tags: [audit]
+      summary: Audit events, newest first. Needs `audit.read`.
+      parameters:
+        - { name: before, in: query, schema: { type: integer }, description: Only events with a smaller id (paging) }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    ws: { name: ws, in: path, required: true, schema: { type: string }, description: Workspace slug }
+    agent: { name: agent, in: path, required: true, schema: { type: string }, description: Agent id or slug }
+    task: { name: task, in: path, required: true, schema: { type: string } }
+    target: { name: target, in: path, required: true, schema: { type: string, enum: [repository, memory] } }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Unauthenticated:
+      description: Missing, invalid or expired token
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: The caller's role does not allow this
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    NotFound:
+      description: Not found (or not visible to the caller)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+    Status:
+      type: object
+      properties:
+        version: { type: string }
+        commit: { type: string }
+        api_version: { type: string }
+        mode: { type: string, enum: [local, server] }
+        schema_version: { type: integer }
+        bootstrapped: { type: boolean }
+        components: { type: object, additionalProperties: { type: string } }
+        executors:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              isolation: { type: string, enum: [none, remote-sandbox, microvm] }
+              available: { type: boolean }
+              note: { type: string }
+    Workspace:
+      type: object
+      properties:
+        id: { type: string }
+        org_id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        policy: { type: object }
+        role: { type: string, enum: [viewer, operator, approver, admin, owner] }
+        created_at: { type: string, format: date-time }
+    AgentSource:
+      type: object
+      required: [source_kind, source_url]
+      properties:
+        source_kind: { type: string, enum: [git, local] }
+        source_url: { type: string, description: "https://, ssh://, git@host:path, or an absolute local path" }
+        source_ref: { type: string, description: Branch or tag; default is the repository's default branch }
+        runtime: { type: string, enum: [gitagent], default: gitagent }
+        credential: { type: string, description: "Name of a git credential configured on the server (LUX_GIT_CREDENTIAL_<NAME>); never the secret" }
+    ImportAgent:
+      allOf:
+        - $ref: "#/components/schemas/AgentSource"
+        - type: object
+          properties:
+            slug: { type: string, description: "Default: the manifest name" }
+            executor: { type: string, default: local }
+    Agent:
+      type: object
+      properties:
+        id: { type: string }
+        workspace_id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        source_kind: { type: string }
+        source_url: { type: string }
+        source_ref: { type: string }
+        runtime: { type: string }
+        executor: { type: string }
+        current_revision_id: { type: string }
+        disabled: { type: boolean }
+        revision: { $ref: "#/components/schemas/Revision" }
+        task_counts: { type: object, additionalProperties: { type: integer } }
+        last_task_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Revision:
+      type: object
+      properties:
+        id: { type: string }
+        agent_id: { type: string }
+        commit_sha: { type: string }
+        manifest: { type: object, description: agent.yaml as JSON }
+        validation: { $ref: "#/components/schemas/ValidationReport" }
+        valid: { type: boolean }
+        created_at: { type: string, format: date-time }
+    ValidationReport:
+      type: object
+      description: See docs/agent-validation.md
+      properties:
+        valid: { type: boolean }
+        errors: { type: array, items: { $ref: "#/components/schemas/Issue" } }
+        warnings: { type: array, items: { $ref: "#/components/schemas/Issue" } }
+        manifest: { type: object }
+        models: { type: array, items: { type: object } }
+        code_execution: { type: array, items: { type: string } }
+        schedules: { type: array, items: { type: object } }
+        opengap: { type: object }
+        runtime: { type: string }
+        checked_at: { type: string, format: date-time }
+    Issue:
+      type: object
+      properties:
+        severity: { type: string, enum: [error, warning] }
+        code: { type: string }
+        path: { type: string }
+        message: { type: string }
+        source: { type: string, enum: [lux, opengap] }
+    TaskState:
+      type: string
+      enum: [queued, starting, running, waiting_approval, cancelling, succeeded, failed, cancelled, timed_out]
+    Task:
+      type: object
+      properties:
+        id: { type: string }
+        workspace_id: { type: string }
+        agent_id: { type: string }
+        agent_name: { type: string }
+        revision_id: { type: string }
+        commit_sha: { type: string }
+        prompt: { type: string }
+        repository_id: { type: string }
+        state: { $ref: "#/components/schemas/TaskState" }
+        state_reason: { type: string }
+        result_summary: { type: string }
+        executor: { type: string }
+        isolation: { type: string }
+        attempt: { type: integer }
+        max_attempts: { type: integer }
+        timeout_seconds: { type: integer }
+        created_by: { type: string }
+        trigger_kind: { type: string }
+        cancel_requested: { type: boolean }
+        event_seq: { type: integer, description: Seq of the latest event }
+        deadline_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        updated_at: { type: string, format: date-time }
+    Event:
+      type: object
+      properties:
+        id: { type: integer }
+        task_id: { type: string }
+        seq: { type: integer }
+        type: { type: string, description: "e.g. task.state" }
+        payload: { type: object }
+        created_at: { type: string, format: date-time }
+    Conversation:
+      type: object
+      properties:
+        id: { type: string }
+        workspace_id: { type: string }
+        agent_id: { type: string }
+        agent_name: { type: string }
+        title: { type: string }
+        created_by: { type: string }
+        active_task_id: { type: string, description: The task working on the latest message, if any }
+        last_message: { $ref: "#/components/schemas/Message" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        conversation_id: { type: string }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        task_id: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    Approval:
+      type: object
+      properties:
+        id: { type: string }
+        workspace_id: { type: string }
+        task_id: { type: string }
+        agent_name: { type: string }
+        task_created_by: { type: string }
+        kind: { type: string, enum: [tool_call, git_commit, git_push, pull_request, memory_change] }
+        summary: { type: string }
+        details: { type: object }
+        rule: { type: string }
+        state: { type: string, enum: [pending, approved, rejected, expired, cancelled] }
+        decided_by: { type: string }
+        decision_note: { type: string }
+        created_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        expires_at: { type: [string, "null"], format: date-time }
+    Repository:
+      type: object
+      properties:
+        id: { type: string }
+        workspace_id: { type: string }
+        name: { type: string }
+        source_kind: { type: string, enum: [git, local] }
+        source_url: { type: string }
+        default_branch: { type: string }
+        test_command: { type: string }
+        credential: { type: string, description: Credential name, never the secret }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    Change:
+      type: object
+      properties:
+        task_id: { type: string }
+        target: { type: string, enum: [repository, memory] }
+        workspace_id: { type: string }
+        attempt: { type: integer }
+        base_commit: { type: string }
+        files:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              added: { type: integer }
+              deleted: { type: integer }
+              binary: { type: boolean }
+        patch_bytes: { type: integer }
+        patch_available: { type: boolean, description: false when the patch was too large to keep }
+        state: { type: string, enum: [proposed, publishing, published, discarded] }
+        branch: { type: string }
+        commit_sha: { type: string }
+        pull_request_url: { type: string }
+        last_error: { type: string }
+        decided_by: { type: string }
+        decided_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        task_prompt: { type: string, description: Review queue only }
+        agent_name: { type: string, description: Review queue only }
+    AuditEvent:
+      type: object
+      properties:
+        id: { type: integer }
+        org_id: { type: string }
+        workspace_id: { type: string }
+        actor_kind: { type: string, enum: [user, system, runtime, schedule] }
+        actor_id: { type: string }
+        action: { type: string }
+        target_kind: { type: string }
+        target_id: { type: string }
+        outcome: { type: string }
+        details: { type: object }
+        created_at: { type: string, format: date-time }

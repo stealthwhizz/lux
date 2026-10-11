@@ -1,0 +1,13 @@
+node_modules/
+/dist/
+*.test
+/deploy/.env
+/bin/
+progress.md
+.env
+
+# launch video working files (frames, stills); keep brag.mp4 and friends
+/brag-output/work/
+/brag-output-*/work/
+# bundled /brag music: licence not verified for redistribution
+/brag-output-*/composition/assets/music/

@@ -1,0 +1,1 @@
+Lux: a personal AI agent for everyone at your company, running on your own server. Close your laptop and it keeps working; it reads your Gmail, Outlook, Drive and Slack as you, and asks before it sends anything. Open source, MIT, and every agent is a gitagent.

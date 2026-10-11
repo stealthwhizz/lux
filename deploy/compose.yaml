@@ -1,0 +1,48 @@
+# Lux server with PostgreSQL. Copy env.example to .env next to this file,
+# fill it in, then: docker compose up -d. See docs/self-hosting.md.
+name: lux
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: lux
+      POSTGRES_DB: lux
+      POSTGRES_PASSWORD: ${LUX_DB_PASSWORD:?set LUX_DB_PASSWORD in deploy/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "lux", "-d", "lux"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  luxd:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: localhost/lux:dev
+    # No init process: luxd must be PID 1. An init shim would hold the whole
+    # container environment (database password, provider keys) where agents
+    # running as the same user could read it from /proc.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      LUX_DATABASE_URL: postgres://lux:${LUX_DB_PASSWORD}@postgres:5432/lux?sslmode=disable
+    ports:
+      # Loopback by default: put a TLS reverse proxy in front before exposing it.
+      - "${LUX_BIND_ADDRESS:-127.0.0.1}:${LUX_PORT:-7878}:7878"
+    volumes:
+      - luxdata:/var/lib/lux
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:7878/readyz').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  luxdata:

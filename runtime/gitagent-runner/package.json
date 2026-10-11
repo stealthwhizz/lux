@@ -1,0 +1,21 @@
+{
+  "name": "@open-gitagent/lux-gitagent-runner",
+  "version": "0.1.0",
+  "description": "Runs a gitagent (OpenGAP) agent for Lux using the Lux runtime protocol v1",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "lux-gitagent-runner": "src/runner.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@open-gitagent/gitagent": "2.2.0",
+    "js-yaml": "4.3.2"
+  }
+}

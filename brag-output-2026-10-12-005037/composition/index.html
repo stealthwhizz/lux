@@ -1,0 +1,460 @@
+<!doctype html>
+<html data-theme="dark" lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lux launch</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+@font-face { font-family: "Instrument Sans Variable"; font-weight: 400 700; src: url("assets/fonts/instrument-sans-latin-wght-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("assets/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+/* Every frame is a pure function of time: no CSS animation or transition. */
+*, *::before, *::after { animation: none !important; transition: none !important; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; }
+body { background: #101010; margin: 0; }
+.stage { position: absolute; inset: 0; overflow: hidden;
+  background: radial-gradient(1200px 700px at 50% 38%, #1d1a14 0%, #121110 55%, #0d0d0c 100%); }
+.layer { position: absolute; inset: 0; }
+.glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; left: 50%; top: 50%;
+  background: radial-gradient(circle, rgba(213,54,12,0.22) 0%, rgba(213,54,12,0) 62%); transform: translate(-50%, -50%); }
+
+/* hook */
+.hook { display: flex; align-items: center; justify-content: center; gap: 72px; }
+.hook-lines { display: grid; gap: 10px; }
+.hook-lines div { font-size: 104px; font-weight: 640; letter-spacing: -0.035em; line-height: 1.04; color: var(--ink); }
+.hook-lines .hot { color: #f26a43; }
+.big-avatar { position: relative; width: 260px; height: 260px; display: grid; place-items: center; }
+.big-avatar img { width: 200px; height: 200px; }
+.big-avatar .ring { position: absolute; inset: 0; border-radius: 50%; border: 6px solid transparent; }
+
+/* reveal + outro */
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.wordmark { font-size: 230px; font-weight: 660; letter-spacing: -0.06em; line-height: 0.9; color: var(--you); }
+.mascots { display: flex; gap: 22px; margin: 42px 0 40px; }
+.mascots img { width: 112px; height: 112px; }
+.tagline { font-size: 58px; font-weight: 560; letter-spacing: -0.02em; color: var(--ink); max-width: 1500px; }
+.tagline .hot { color: #f26a43; }
+.pillars { font-size: 62px; font-weight: 620; letter-spacing: -0.025em; color: var(--ink); margin-top: 36px; }
+.pillars span { display: inline-block; margin: 0 14px; }
+.fineprint { margin-top: 34px; font-family: var(--mono); font-size: 30px; color: var(--ink-3); letter-spacing: 0.02em; }
+
+/* app scenes */
+.caption { position: absolute; left: 0; right: 0; top: 46px; text-align: center; font-size: 72px; font-weight: 640; letter-spacing: -0.03em; color: var(--ink); }
+.caption .sub { display: block; margin-top: 8px; font-size: 30px; font-weight: 500; letter-spacing: 0; color: var(--ink-3); font-family: var(--mono); }
+.viewport { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.window { position: absolute; left: 50%; top: 214px; width: 1160px; height: 640px; transform-origin: 0 0;
+  border-radius: 14px; overflow: hidden; border: 1px solid #34312a;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.4); background: var(--paper); }
+.window .shell { height: 100%; }
+.window .side { height: 640px; }
+.window .side-foot { gap: 10px; }
+.window .main { height: 640px; }
+.window section.chat { height: 640px; }
+::-webkit-scrollbar { display: none; }
+.cursor { position: absolute; width: 30px; height: 30px; z-index: 50; pointer-events: none; }
+.cursor svg { filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+.ripple { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 2px solid #f26a43; z-index: 49; }
+.chat-body { overflow: hidden !important; }
+.avatar.working::after { transform: rotate(var(--rot, 0deg)); }
+.side-row.ghost { background: var(--side-active); }
+.menu.down.wide { width: 280px; }
+.window .menu { z-index: 30; }
+.connector-row .ok { color: var(--ok); }
+.conn-card { position: absolute; left: 50%; top: 250px; width: 420px; transform-origin: 50% 0; z-index: 40; }
+.conn-card .menu { position: static; width: 420px; max-height: none; box-shadow: 0 40px 120px rgba(0,0,0,0.65); }
+.conn-card .connector-row .why { white-space: nowrap; }
+.btn.small { white-space: nowrap; }
+.choice.on { color: #fff7e9; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-width="1920" data-height="1080" data-duration="23.4">
+  <audio id="music" class="clip" data-start="0" data-duration="23.4" data-track-index="1" data-volume="1" data-fade-in="0.3" data-fade-out="1.1" data-automation='{"version": 1, "lanes": [{"target": "volume", "points": [{"t": 0, "v": 0.13}, {"t": 2.45, "v": 0.13}, {"t": 2.75, "v": 0.42}, {"t": 3.75, "v": 0.42}, {"t": 3.95, "v": 0.13}, {"t": 12.6, "v": 0.13}, {"t": 12.8, "v": 0.3}, {"t": 13.25, "v": 0.3}, {"t": 13.4, "v": 0.13}, {"t": 15.85, "v": 0.13}, {"t": 16.1, "v": 0.35}, {"t": 16.85, "v": 0.35}, {"t": 17.0, "v": 0.13}, {"t": 20.4, "v": 0.13}, {"t": 20.6, "v": 0.3}, {"t": 20.85, "v": 0.3}, {"t": 20.95, "v": 0.13}, {"t": 22.3, "v": 0.13}, {"t": 22.5, "v": 0.34}, {"t": 23.4, "v": 0.0}]}]}' src="assets/music/happy-beats-business-moves-vol-11-by-ende-dot-app.mp3"></audio>
+  <!-- beat-locked 1.60: 'Your agent didn't.' -->
+  <audio id="sfx0" class="clip" data-start="1.6" data-track-index="2" data-volume="0.35" data-duration="0.183" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+  <!-- beat-locked 3.70: Lux wordmark -->
+  <audio id="sfx1" class="clip" data-start="3.7" data-track-index="2" data-volume="0.5" data-duration="0.147" src="assets/sfx/impactSoft_medium_004.ogg"></audio>
+  <!-- cursor presses + -->
+  <audio id="sfx2" class="clip" data-start="9.1" data-track-index="2" data-volume="0.6" data-duration="0.010" src="assets/sfx/click_003.ogg"></audio>
+  <!-- cursor picks Create an agent -->
+  <audio id="sfx3" class="clip" data-start="9.7" data-track-index="2" data-volume="0.6" data-duration="0.010" src="assets/sfx/click_003.ogg"></audio>
+  <!-- cursor picks Plan our offsite -->
+  <audio id="sfx4" class="clip" data-start="11.7" data-track-index="2" data-volume="0.6" data-duration="0.010" src="assets/sfx/click_003.ogg"></audio>
+  <!-- cursor presses Allow -->
+  <audio id="sfx5" class="clip" data-start="15.1" data-track-index="2" data-volume="0.6" data-duration="0.010" src="assets/sfx/click_003.ogg"></audio>
+  <!-- approved -->
+  <audio id="sfx6" class="clip" data-start="15.15" data-track-index="2" data-volume="0.18" data-duration="1.480" src="assets/sfx/impactBell_heavy_000.ogg"></audio>
+  <!-- beat-grid 17.91: Google connects -->
+  <audio id="sfx7" class="clip" data-start="17.91" data-track-index="2" data-volume="0.3" data-duration="0.611" src="assets/sfx/switch_002.ogg"></audio>
+  <!-- beat-grid 18.44: Microsoft 365 -->
+  <audio id="sfx8" class="clip" data-start="18.44" data-track-index="4" data-volume="0.3" data-duration="0.611" src="assets/sfx/switch_002.ogg"></audio>
+  <!-- beat-grid 18.96: Slack -->
+  <audio id="sfx9" class="clip" data-start="18.96" data-track-index="2" data-volume="0.3" data-duration="0.611" src="assets/sfx/switch_002.ogg"></audio>
+  <!-- outro wordmark -->
+  <audio id="sfx10" class="clip" data-start="20.4" data-track-index="2" data-volume="0.2" data-duration="0.654" src="assets/sfx/impactBell_heavy_003.ogg"></audio>
+  <audio id="vo1" class="clip" data-start="0.35" data-track-index="3" data-volume="1" data-duration="2.048" src="assets/vo/vo1.wav"></audio>
+  <audio id="vo2" class="clip" data-start="3.85" data-track-index="3" data-volume="1" data-duration="4.779" src="assets/vo/vo2.wav"></audio>
+  <audio id="vo3" class="clip" data-start="8.9" data-track-index="3" data-volume="1" data-duration="3.691" src="assets/vo/vo3.wav"></audio>
+  <audio id="vo4" class="clip" data-start="13.4" data-track-index="3" data-volume="1" data-duration="2.389" src="assets/vo/vo4.wav"></audio>
+  <audio id="vo5" class="clip" data-start="17.0" data-track-index="3" data-volume="1" data-duration="3.392" src="assets/vo/vo5.wav"></audio>
+  <audio id="vo6" class="clip" data-start="20.9" data-track-index="3" data-volume="1" data-duration="1.365" src="assets/vo/vo6.wav"></audio>
+<div class="stage" id="stage">
+  <div class="glow" id="glow" data-layout-allow-overflow></div>
+
+  <!-- 1. hook -->
+  <div class="layer hook" id="hook">
+    <div class="big-avatar" id="hookAvatar"><img src="assets/mascots/gitclaw-orange.png" alt=""><div class="ring" id="hookRing"></div></div>
+    <div class="hook-lines"><div id="h1">You closed your laptop.</div><div id="h2" class="hot">Your agent didn't.</div></div>
+  </div>
+
+  <!-- 2. reveal -->
+  <div class="layer center" id="reveal">
+    <div class="wordmark" id="rvWord">Lux</div>
+    <div class="mascots" id="rvMascots"></div>
+    <div class="tagline" id="rvTag">A personal AI agent for <span class="hot">everyone</span> at your company.</div>
+  </div>
+
+  <!-- 3–5. the app -->
+  <div class="layer" id="appScene">
+    <div class="caption" id="cap"><span id="capText"></span><span class="sub" id="capSub"></span></div>
+    <div class="viewport">
+      <div class="conn-card" id="connCard" data-layout-allow-occlusion>
+                <div class="menu connectors-menu" id="connMenu" role="dialog" data-layout-allow-occlusion>
+                  <div class="menu-head"><strong>Connectors</strong><span class="why">Accounts your agents can use for you. Agents never see the keys.</span></div>
+                  <div class="connector-row" id="c0"><span class="connector-mark">G</span><span class="connector-title"><span class="connector-name">Google</span><span class="why" data-on="Connected as sam@acme.com">Gmail, Calendar and Drive</span></span><button class="btn primary small">Connect</button></div>
+                  <div class="connector-row" id="c1"><span class="connector-mark">M</span><span class="connector-title"><span class="connector-name">Microsoft 365</span><span class="why" data-on="Connected as sam@acme.com">Outlook mail, calendar, OneDrive</span></span><button class="btn primary small">Connect</button></div>
+                  <div class="connector-row" id="c2"><span class="connector-mark">S</span><span class="connector-title"><span class="connector-name">Slack</span><span class="why" data-on="Connected as sam in Acme">Search, read and post as you</span></span><button class="btn primary small">Connect</button></div>
+                </div>
+      </div>
+      <div class="window" id="win">
+        <div class="shell">
+          <nav class="side" aria-label="Agents">
+            <div class="side-top">
+              <span class="brand">Lux</span>
+              <div class="menu-wrap">
+                <button class="icon-btn" id="plusBtn"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg></button>
+                <div class="menu down wide" id="plusMenu" role="dialog" data-layout-allow-overlap>
+                  <input class="menu-search" placeholder="Find an agent">
+                  <div class="menu-list">
+                    <button class="menu-pick" id="createPick" data-layout-allow-overlap><span class="pick-plus">+</span>Create an agent</button>
+                    <button class="menu-pick"><img src="assets/mascots/gitclaw-blue.png" width="22" height="22" alt=""><span class="pick-name">Inbox Helper</span></button>
+                  </div>
+                  <button class="menu-foot">Import from a git repository</button>
+                </div>
+              </div>
+            </div>
+            <label class="search"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="5.2"/><path d="m13 13 3.2 3.2"/></svg><input placeholder="Search"></label>
+            <div class="side-list">
+              <div class="side-item" id="newRow">
+                <div class="side-row chat" aria-current="page">
+                  <span class="avatar" id="rowAvatar" style="--hue:#e0559e;width:46px;height:46px"><img src="assets/mascots/gitclaw-pink.png" width="38" height="38" alt=""></span>
+                  <span class="side-text"><span class="side-line"><span class="side-name" id="rowName">New agent</span></span><span class="side-preview" id="rowStatus"></span></span>
+                </div>
+              </div>
+              <div class="side-item"><div class="side-row chat" id="inboxRow">
+                <span class="avatar" style="--hue:#4c8bea;width:46px;height:46px"><img src="assets/mascots/gitclaw-blue.png" width="38" height="38" alt=""></span>
+                <span class="side-text"><span class="side-line"><span class="side-name">Inbox Helper</span></span></span>
+              </div></div>
+            </div>
+            <div class="side-foot">
+              <span class="me-chip">SK</span><span class="me-name">sam</span><span class="dot up"></span>
+              <div class="menu-wrap">
+                <button class="icon-btn"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="10" r="0.6"/><circle cx="10" cy="10" r="0.6"/><circle cx="15" cy="10" r="0.6"/></svg></button>
+              </div>
+            </div>
+          </nav>
+          <main class="main">
+            <section class="chat" style="--hue:#e0559e">
+              <header class="chat-head">
+                <div class="menu-wrap head-agent"><span class="head-btn">
+                  <span class="avatar" id="headAvatar" style="--hue:#e0559e;width:36px;height:36px"><img src="assets/mascots/gitclaw-pink.png" width="28" height="28" alt=""></span>
+                  <span class="head-text"><h1 id="headName">New agent</h1><span class="head-status" id="headStatus">Your personal agent</span></span>
+                </span></div>
+              </header>
+              <div class="chat-body" id="body">
+                <div class="hello top" id="hello"><img src="assets/mascots/gitclaw-pink.png" width="96" height="96" alt=""><h2 id="helloName">New agent</h2><p id="helloDesc">Your personal agent</p></div>
+                <div class="note" id="noteCreated">You created New agent</div>
+                <div class="turn" id="greet"><div class="bubble agent"><div class="rich"><p>Hi! I'm your new agent. I work around the clock and ask before I act.</p><p>What should I do first?</p></div></div></div>
+                <div class="choices" id="choices">
+                  <button class="choice" id="ch0">Plan our offsite</button>
+                  <button class="choice" id="ch1">Watch my inbox</button>
+                  <button class="choice" id="ch2">Prep my meetings</button>
+                </div>
+                <div class="turn" id="youMsg"><div class="bubble you">Plan our offsite</div></div>
+                <div class="turn" id="ask"><div class="bubble agent"><div class="rich"><p>On it. Goa on 14 November for 40 people, like last year? I'll invite the team.</p></div></div></div>
+                <div class="activity" id="activity">
+                  <div class="activity-now" id="actNow"><span class="pulse" id="pulse"></span><span id="actText">Searching your email</span></div>
+                  <div class="decision" id="decision"><span class="decision-text">Wants to send an email to team@acme.com: "Offsite: Goa, 14 November"</span>
+                    <div class="row"><button class="btn approve" id="allowBtn">Allow</button><button class="btn quiet">Don't allow</button></div></div>
+                </div>
+                <div class="turn" id="sent"><div class="bubble agent"><div class="rich"><p>Sent. 40 people invited to the Goa offsite on 14 November. The plan is in offsite-plan.md.</p></div><div class="chips"><span class="file-chip static"><span class="file-name">offsite-plan.md</span></span></div></div></div>
+              </div>
+              <div class="composer"><div class="pill"><div class="pill-row">
+                <button class="attach"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg></button>
+                <textarea rows="1" id="composer" placeholder="Message New agent"></textarea>
+                <button class="send"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M10 15.5v-11M5.5 9 10 4.5 14.5 9"/></svg></button>
+              </div></div></div>
+            </section>
+          </main>
+        </div>
+        <div class="ripple" id="ripple"></div>
+        <div class="cursor" id="cursor"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M4 2.5 4 19l4.4-4.1 2.8 6.4 2.9-1.3-2.8-6.3 6-.4z" fill="#fff6e8" stroke="#101010" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. outro -->
+  <div class="layer center" id="outro">
+    <div class="wordmark" id="ouWord">Lux</div>
+    <div class="pillars" id="ouPillars"><span>Always on.</span><span>Asks first.</span><span class="hot" style="color:#f26a43">Self-hosted.</span></div>
+    <div class="fineprint" id="ouFine">open source · MIT · every agent is a gitagent</div>
+  </div>
+</div>
+
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const out3 = (x) => 1 - Math.pow(1 - x, 3);
+const inout = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const back = (x) => { const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+const show = (el, on) => { el.style.display = on ? "" : "none"; };
+// rise: fade in while moving up `dy` px
+function rise(el, t, a, d = 0.5, dy = 26) {
+  const x = out3(seg(t, a, a + d));
+  el.style.opacity = x; el.style.transform = `translateY(${(1 - x) * dy}px)`;
+}
+
+const HUES = ["red","orange","amber","green","teal","blue","indigo","purple","pink"];
+for (const h of HUES) { const i = document.createElement("img"); i.src = `assets/mascots/gitclaw-${h}.png`; $("rvMascots").appendChild(i); }
+
+// Scene windows (seconds)
+const S = { hookOut: 3.15, revealIn: 3.4, revealOut: 6.3, appIn: 6.6, appOut: 17.75, outroIn: 18.0, end: 21.0 };
+const WIN_SCALE = 1.3;
+// Cursor path in window (unscaled) coordinates: [time, x, y]
+const PATH = [
+  [6.6, 620, 420], [7.15, 268, 30], [7.35, 268, 30], [7.75, 120, 116], [7.95, 120, 116],
+  [8.7, 560, 520], [9.6, 405, 500], [9.95, 405, 500], [10.6, 700, 560],
+  [12.3, 650, 470], [13.05, 395, 452], [13.4, 395, 452], [14.4, 760, 600],
+  [14.9, 760, 600]];
+const CLICKS = [7.3, 7.9, 9.9, 13.3];
+
+function cursorAt(t) {
+  if (t <= PATH[0][0]) return PATH[0];
+  for (let i = 1; i < PATH.length; i++) {
+    const [ta, xa, ya] = PATH[i - 1], [tb, xb, yb] = PATH[i];
+    if (t <= tb) { const x = inout(seg(t, ta, tb)); return [t, lerp(xa, xb, x), lerp(ya, yb, x)]; }
+  }
+  return PATH[PATH.length - 1];
+}
+
+// Layout positions inside the chat body, computed once fonts are in.
+function render(t) {
+  // background glow drifts gently
+  const g = $("glow");
+  g.style.left = `${50 + 6 * Math.sin(t * 0.35)}%`; g.style.top = `${46 + 4 * Math.cos(t * 0.27)}%`;
+  g.style.opacity = t < S.appIn ? 1 : t < S.appOut ? 0.55 : 1;
+
+  // ---------- 1. hook ----------
+  const hookOn = t < S.revealIn;
+  show($("hook"), hookOn);
+  if (hookOn) {
+    const fade = 1 - seg(t, S.hookOut, S.revealIn);
+    $("hook").style.opacity = fade;
+    const a = out3(seg(t, 0.0, 0.7));
+    $("hookAvatar").style.opacity = a; $("hookAvatar").style.transform = `scale(${lerp(0.85, 1, a)})`;
+    rise($("h1"), t, 0.25, 0.55, 30);
+    rise($("h2"), t, 1.15, 0.55, 30);
+    const ring = $("hookRing");
+    ring.style.borderTopColor = "#f26a43"; ring.style.borderRightColor = "rgba(242,106,67,0.35)";
+    ring.style.transform = `rotate(${t * 300}deg)`;
+  }
+
+  // ---------- 2. reveal ----------
+  const revOn = t >= S.revealIn && t < S.appIn;
+  show($("reveal"), revOn);
+  if (revOn) {
+    $("reveal").style.opacity = 1 - seg(t, S.revealOut, S.appIn);
+    const w = out3(seg(t, S.revealIn, S.revealIn + 0.55));
+    $("rvWord").style.opacity = w; $("rvWord").style.transform = `scale(${lerp(1.12, 1, w)})`;
+    [...$("rvMascots").children].forEach((img, i) => {
+      const x = seg(t, 3.75 + i * 0.07, 3.75 + i * 0.07 + 0.38);
+      img.style.opacity = clamp(x * 2); img.style.transform = `translateY(${(1 - back(x)) * 40}px) scale(${lerp(0.6, 1, back(x))})`;
+    });
+    rise($("rvTag"), t, 4.45, 0.55, 24);
+  }
+
+  // ---------- 3–5. app ----------
+  const appOn = t >= S.revealOut + 0.25 && t < S.outroIn;
+  show($("appScene"), appOn);
+  if (appOn) renderApp(t);
+
+  // ---------- 6. outro ----------
+  const ouOn = t >= S.outroIn;
+  show($("outro"), ouOn);
+  if (ouOn) {
+    const w = out3(seg(t, S.outroIn, S.outroIn + 0.6));
+    $("ouWord").style.opacity = w; $("ouWord").style.transform = `scale(${lerp(0.94, 1, w)})`;
+    [...$("ouPillars").children].forEach((s, i) => rise(s, t, 18.45 + i * 0.28, 0.45, 22));
+    rise($("ouFine"), t, 19.35, 0.5, 14);
+  }
+}
+
+function caption(t, a, b, text, sub = "") {
+  // dip: fade in at a, out before b
+  return { on: t >= a && t < b, op: Math.min(seg(t, a, a + 0.35), 1 - seg(t, b - 0.3, b)), text, sub, a };
+}
+
+function renderApp(t) {
+  const scene = $("appScene");
+  scene.style.opacity = Math.min(seg(t, S.appIn - 0.05, S.appIn + 0.3), 1 - seg(t, S.appOut, S.outroIn));
+
+  // camera: the window rises in, then steps back for the connectors
+  const w = $("win");
+  const inX = out3(seg(t, S.appIn - 0.05, S.appIn + 0.5));
+  const back5 = inout(seg(t, 14.9, 15.35));
+  w.style.transform = `translate(${-1160 * WIN_SCALE / 2}px, ${(1 - inX) * 60 + back5 * 30}px) scale(${WIN_SCALE * (1 - 0.06 * back5)})`;
+  w.style.opacity = inX * (1 - 0.82 * back5);
+  w.style.filter = back5 > 0 ? `blur(${back5 * 6}px)` : "";
+  const card = $("connCard"), cin = out3(seg(t, 15.2, 15.6));
+  show(card, t >= 15.2);
+  card.style.opacity = cin;
+  card.style.transform = `translateX(-50%) translateY(${(1 - cin) * 30}px) scale(2.15)`;
+
+  // captions
+  const caps = [
+    caption(t, 6.85, 11.0, "One click. It names itself."),
+    caption(t, 11.2, 14.85, "It asks before it acts."),
+    caption(t, 15.0, 17.75, "Your accounts. Your server.", "Gmail · Calendar · Drive · Outlook · OneDrive · Slack"),
+  ];
+  const c = caps.find((x) => x.on);
+  $("cap").style.opacity = c ? c.op : 0;
+  if (c) {
+    $("capText").textContent = c.text; $("capSub").textContent = c.sub; show($("capSub"), !!c.sub);
+    $("cap").style.transform = `translateY(${(1 - out3(seg(t, c.a, c.a + 0.45))) * 18}px)`;
+  }
+
+  // + menu
+  show($("plusMenu"), t >= 7.3 && t < 7.95);
+  $("plusMenu").style.opacity = out3(seg(t, 7.3, 7.45));
+  $("createPick").style.background = t >= 7.75 ? "var(--side-hover)" : "";
+  $("plusBtn").style.background = t >= 7.15 && t < 7.95 ? "var(--side-hover)" : "";
+
+  // the new agent exists from 7.95
+  const created = t >= 7.95;
+  const named = t >= 10.55;
+  const nameX = seg(t, 10.55, 10.95);
+  show($("newRow"), created);
+  $("newRow").style.opacity = out3(seg(t, 7.95, 8.25));
+  for (const id of ["rowName", "headName", "helloName"]) {
+    const el = $(id);
+    el.textContent = named ? "Trip Planner" : "New agent";
+    el.style.opacity = named ? out3(nameX) : 1 - seg(t, 10.3, 10.55);
+    el.style.color = named && nameX < 1 ? "#f26a43" : "";
+  }
+  $("helloDesc").textContent = named ? "Plan our team offsite" : "Your personal agent";
+  $("composer").placeholder = named ? "Message Trip Planner" : "Message New agent";
+
+  // before creation the chat shows the existing Inbox Helper thread: keep it simple, show the new agent only
+  const body = $("body");
+  body.style.opacity = created ? out3(seg(t, 7.95, 8.3)) : 0;
+  $("inboxRow").setAttribute("aria-current", created ? "false" : "page");
+
+  // status: working while it thinks, orange while it needs you
+  const working = (t >= 8.0 && t < 8.6) || (t >= 10.1 && t < 12.0) || (t >= 13.35 && t < 13.8);
+  const needs = t >= 12.0 && t < 13.35;
+  for (const id of ["rowAvatar", "headAvatar"]) {
+    const a = $(id);
+    a.className = "avatar" + (needs ? " needs" : working ? " working" : "");
+    a.style.setProperty("--rot", `${t * 300}deg`);
+  }
+  $("rowStatus").textContent = needs ? "Needs you" : working ? "Working…" : "";
+  $("rowStatus").className = "side-preview " + (needs ? "needs" : working ? "working" : "");
+  show($("rowStatus"), needs || working);
+  $("headStatus").textContent = needs ? "Needs you" : working ? "Working…" : (named ? "Plan our team offsite" : "Your personal agent");
+  $("headStatus").className = "head-status " + (needs ? "needs" : working ? "working" : "");
+
+  // conversation beats
+  rise($("greet"), t, 8.6, 0.4, 14);
+  [0, 1, 2].forEach((i) => rise($(`ch${i}`), t, 8.95 + i * 0.16, 0.35, 10));
+  $("ch0").classList.toggle("on", t >= 9.85 && t < 10.1);
+  show($("choices"), t < 10.1);
+  show($("youMsg"), t >= 10.1); rise($("youMsg"), t, 10.1, 0.35, 12);
+  show($("ask"), t >= 11.15); rise($("ask"), t, 11.15, 0.4, 12);
+  show($("activity"), t >= 11.55 && t < 13.75);
+  rise($("activity"), t, 11.55, 0.35, 12);
+  const deciding = t >= 12.0;
+  $("activity").className = "activity" + (deciding ? " needs" : "");
+  show($("actNow"), !deciding); show($("decision"), deciding);
+  $("pulse").style.opacity = 0.35 + 0.65 * (0.5 + 0.5 * Math.cos(t * 6));
+  $("allowBtn").style.filter = t >= 13.25 && t < 13.5 ? "brightness(1.25)" : "";
+  show($("sent"), t >= 13.75); rise($("sent"), t, 13.75, 0.4, 12);
+
+  // scroll: the hero leaves as the conversation grows
+  const scrollY = lerp(0, 175, inout(seg(t, 10.9, 11.5))) + lerp(0, 135, inout(seg(t, 13.7, 14.2)));
+  for (const el of body.children) el.style.translate = `0 ${-scrollY}px`;
+  const heroOut = 1 - seg(t, 10.9, 11.3);
+  $("hello").style.opacity = heroOut; $("noteCreated").style.opacity = heroOut;
+  $("greet").style.opacity = Math.min($("greet").style.opacity || 1, 1 - seg(t, 13.7, 14.1));
+
+  // connectors dropdown
+  [15.91, 16.35, 16.78].forEach((at, i) => {
+    const row = $(`c${i}`), on = t >= at;
+    const why = row.querySelector(".why"), btn = row.querySelector("button");
+    if (!why.dataset.off) why.dataset.off = why.textContent;
+    why.textContent = on ? why.dataset.on : why.dataset.off;
+    why.className = "why" + (on ? " ok" : "");
+    btn.textContent = on ? "Disconnect" : "Connect";
+    btn.className = "btn small " + (on ? "quiet" : "primary");
+    row.classList.toggle("on", on);
+    const pop = seg(t, at, at + 0.3);
+    row.style.transform = on && pop < 1 ? `scale(${1 + 0.03 * Math.sin(pop * Math.PI)})` : "";
+  });
+
+  // cursor and clicks
+  const [, cx, cy] = cursorAt(t);
+  const cur = $("cursor");
+  cur.style.left = `${cx}px`; cur.style.top = `${cy}px`;
+  cur.style.opacity = t < 6.75 ? seg(t, 6.6, 6.75) : 1 - seg(t, 14.6, 14.9);
+  const click = CLICKS.find((k) => t >= k && t < k + 0.35);
+  const rp = $("ripple");
+  if (click !== undefined) {
+    const x = seg(t, click, click + 0.35);
+    const [, px, py] = cursorAt(click);
+    rp.style.display = ""; rp.style.left = `${px + 4}px`; rp.style.top = `${py + 4}px`;
+    rp.style.transform = `scale(${lerp(0.4, 1.4, out3(x))})`; rp.style.opacity = 1 - x;
+    cur.style.transform = `scale(${x < 0.3 ? 0.88 : 1})`;
+  } else { rp.style.display = "none"; cur.style.transform = ""; }
+}
+
+// Storyboard clock -> video clock. Scenes stretch to fit the narration; reveals land on the music.
+const MAP = [[0, 0], [1.15, 1.60], [3.15, 3.45], [3.4, 3.70], [3.75, 3.95], [4.45, 4.60], [6.3, 7.75], [6.6, 8.4],
+  [15.0, 16.8], [17.75, 20.15], [18.0, 20.4], [21.0, 23.4]];
+function storyTime(T) {
+  for (let i = 1; i < MAP.length; i++) {
+    const [oa, na] = MAP[i - 1], [ob, nb] = MAP[i];
+    if (T <= nb) return oa + (ob - oa) * clamp((T - na) / (nb - na));
+  }
+  return MAP[MAP.length - 1][0];
+}
+// Music energy per frame (30 fps): the glow breathes gently with the track.
+const ENERGY = [0.495, 0.82, 1.0, 0.755, 0.449, 0.352, 0.383, 0.436, 0.518, 0.597, 0.652, 0.577, 0.504, 0.413, 0.828, 0.974, 1.0, 0.988, 0.995, 0.478, 0.242, 0.145, 0.149, 0.141, 0.148, 0.125, 0.116, 0.069, 0.024, 0.064, 0.517, 0.734, 0.874, 0.982, 0.95, 0.503, 0.282, 0.154, 0.049, 0.023, 0.009, 0.001, 0.057, 0.09, 0.067, 0.297, 0.717, 0.885, 0.97, 1.0, 0.753, 0.329, 0.066, 0.0, 0.117, 0.276, 0.398, 0.534, 0.542, 0.356, 0.161, 0.37, 0.618, 0.803, 0.935, 1.0, 0.794, 0.496, 0.309, 0.322, 0.341, 0.37, 0.357, 0.354, 0.232, 0.117, 0.037, 0.342, 0.655, 0.816, 0.883, 0.91, 0.599, 0.274, 0.156, 0.094, 0.072, 0.011, 0.0, 0.0, 0.0, 0.0, 0.0, 0.287, 0.644, 0.839, 0.937, 0.993, 0.653, 0.304, 0.104, 0.005, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.332, 0.597, 0.757, 0.856, 0.881, 0.355, 0.014, 0.0, 0.0, 0.0, 0.106, 0.221, 0.333, 0.188, 0.022, 0.043, 0.428, 0.604, 0.808, 0.948, 0.94, 0.575, 0.445, 0.382, 0.489, 0.543, 0.571, 0.591, 0.591, 0.481, 0.39, 0.496, 0.787, 0.795, 0.847, 0.847, 0.761, 0.431, 0.393, 0.407, 0.457, 0.386, 0.34, 0.265, 0.157, 0.08, 0.056, 0.346, 0.726, 0.848, 0.975, 1.0, 0.793, 0.435, 0.301, 0.167, 0.107, 0.073, 0.028, 0.014, 0.025, 0.0, 0.0, 0.368, 0.759, 0.899, 1.0, 1.0, 0.588, 0.15, 0.0, 0.0, 0.046, 0.124, 0.268, 0.363, 0.281, 0.129, 0.0, 0.276, 0.546, 0.715, 0.881, 1.0, 0.703, 0.408, 0.309, 0.318, 0.468, 0.522, 0.62, 0.6, 0.522, 0.345, 0.25, 0.603, 0.754, 0.79, 0.856, 0.835, 0.366, 0.153, 0.099, 0.052, 0.079, 0.114, 0.14, 0.179, 0.198, 0.186, 0.25, 0.683, 0.838, 0.855, 0.898, 0.785, 0.307, 0.042, 0.0, 0.0, 0.0, 0.0, 0.0, 0.082, 0.139, 0.146, 0.412, 0.848, 1.0, 1.0, 1.0, 0.809, 0.357, 0.126, 0.049, 0.091, 0.094, 0.147, 0.151, 0.087, 0.0, 0.0, 0.116, 0.479, 0.712, 0.906, 1.0, 0.841, 0.549, 0.405, 0.416, 0.456, 0.507, 0.533, 0.569, 0.502, 0.407, 0.284, 0.613, 0.867, 0.874, 0.897, 0.935, 0.551, 0.225, 0.157, 0.156, 0.166, 0.184, 0.198, 0.21, 0.176, 0.135, 0.066, 0.453, 0.688, 0.853, 0.977, 1.0, 0.634, 0.394, 0.197, 0.082, 0.053, 0.028, 0.003, 0.076, 0.14, 0.179, 0.312, 0.742, 0.94, 0.995, 1.0, 0.898, 0.452, 0.166, 0.017, 0.068, 0.205, 0.339, 0.448, 0.496, 0.333, 0.141, 0.128, 0.509, 0.678, 0.893, 1.0, 1.0, 0.627, 0.499, 0.418, 0.488, 0.524, 0.513, 0.5, 0.421, 0.28, 0.176, 0.292, 0.631, 0.744, 0.819, 0.851, 0.685, 0.322, 0.194, 0.121, 0.107, 0.074, 0.022, 0.0, 0.0, 0.0, 0.0, 0.286, 0.691, 0.882, 1.0, 1.0, 0.781, 0.393, 0.181, 0.049, 0.007, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.281, 0.604, 0.742, 0.834, 0.893, 0.462, 0.102, 0.0, 0.0, 0.024, 0.127, 0.237, 0.33, 0.245, 0.07, 0.0, 0.305, 0.508, 0.755, 0.909, 1.0, 0.736, 0.559, 0.418, 0.494, 0.533, 0.596, 0.648, 0.644, 0.522, 0.427, 0.362, 0.631, 0.732, 0.789, 0.78, 0.81, 0.472, 0.355, 0.293, 0.288, 0.201, 0.156, 0.092, 0.052, 0.006, 0.007, 0.165, 0.587, 0.795, 0.952, 1.0, 0.93, 0.571, 0.388, 0.257, 0.181, 0.135, 0.064, 0.004, 0.04, 0.023, 0.0, 0.27, 0.717, 0.832, 0.894, 0.97, 0.684, 0.223, 0.011, 0.0, 0.037, 0.167, 0.299, 0.455, 0.454, 0.284, 0.094, 0.0, 0.0, 0.0, 0.007, 0.146, 0.238, 0.29, 0.392, 0.516, 0.642, 0.747, 0.78, 0.729, 0.615, 0.522, 0.417, 0.33, 0.305, 0.261, 0.182, 0.153, 0.168, 0.149, 0.173, 0.178, 0.178, 0.126, 0.067, 0.035, 0.048, 0.058, 0.093, 0.193, 0.285, 0.273, 0.275, 0.195, 0.071, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.063, 0.402, 0.639, 0.821, 0.999, 0.788, 0.623, 0.545, 0.509, 0.64, 0.723, 0.754, 0.781, 0.793, 0.644, 0.53, 0.777, 0.877, 0.91, 0.93, 0.934, 0.725, 0.643, 0.605, 0.561, 0.578, 0.489, 0.424, 0.418, 0.461, 0.452, 0.428, 0.765, 0.939, 1.0, 1.0, 1.0, 0.705, 0.482, 0.352, 0.223, 0.235, 0.257, 0.274, 0.344, 0.529, 0.586, 0.597, 0.952, 1.0, 0.925, 0.87, 0.824, 0.458, 0.29, 0.234, 0.344, 0.54, 0.699, 0.85, 1.0, 0.991, 0.883, 0.839, 1.0, 1.0, 1.0, 0.951, 0.866, 0.559, 0.414, 0.396, 0.536, 0.628, 0.639, 0.605, 0.575, 0.425, 0.307, 0.459, 0.751, 0.864, 0.868, 0.839, 0.747, 0.553, 0.525, 0.581, 0.652, 0.577, 0.479, 0.411, 0.347, 0.298, 0.254, 0.519, 0.753, 0.909, 1.0, 1.0, 0.776, 0.594, 0.481, 0.38, 0.389, 0.365, 0.322, 0.299, 0.452, 0.521, 0.529, 0.828, 1.0, 1.0, 0.955, 0.954, 0.652, 0.431, 0.308, 0.343, 0.439, 0.539, 0.611, 0.682, 0.701, 0.656, 0.578, 0.848, 0.933, 0.881, 0.847, 0.818, 0.472, 0.334, 0.328, 0.414, 0.598, 0.744, 0.828, 0.905, 0.851, 0.713, 0.611, 0.873, 0.89, 0.81, 0.775, 0.822, 0.541, 0.531, 0.623, 0.66, 0.629, 0.585, 0.528, 0.497, 0.478, 0.417, 0.474, 0.756, 0.908, 0.98, 1.0, 0.967, 0.663, 0.501, 0.402, 0.412, 0.436, 0.45, 0.461, 0.562, 0.612, 0.607, 0.812, 1.0, 1.0, 1.0, 0.951, 0.722, 0.418, 0.327, 0.275, 0.473, 0.635, 0.801, 0.943, 1.0, 0.905, 0.761, 0.894, 0.96, 0.911, 0.923, 0.907, 0.687, 0.541, 0.537, 0.507, 0.622, 0.647, 0.693, 0.702, 0.709, 0.604, 0.513, 0.733, 0.886, 0.839, 0.873, 0.891, 0.664, 0.514, 0.521, 0.208, 0.0];
+function frameAt(T) {
+  render(storyTime(T));
+  const e = ENERGY[Math.min(ENERGY.length - 1, Math.max(0, Math.round(T * 30)))] || 0;
+  const g = $("glow");
+  g.style.opacity = String(Number(g.style.opacity || 1) * (0.8 + 0.35 * e));
+  g.style.transform = `translate(-50%, -50%) scale(${1 + 0.06 * e})`;
+}
+const DURATION = 23.4;
+const clock = { _t: 0, get t() { return this._t; }, set t(v) { this._t = v; frameAt(v); } };
+const tl = gsap.timeline({ paused: true });
+tl.fromTo(clock, { t: 0 }, { t: DURATION, duration: DURATION, ease: "none" }, 0);
+window.__timelines = window.__timelines || {};
+window.__timelines["root"] = tl;
+frameAt(0);
+</script>
+</body>
+</html>
