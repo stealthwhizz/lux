@@ -42,6 +42,12 @@ type Server struct {
 	GoogleClientID, GoogleClientSecret string
 	// GitHubAPIURL is where pull requests are opened for github.com remotes.
 	GitHubAPIURL string
+	// SlackBotToken and SlackAppToken run the Lux bot in Slack (Socket Mode);
+	// an administrator can instead set them in the app.
+	SlackBotToken, SlackAppToken string
+	// Browser is LUX_BROWSER: a Chrome or Chromium binary for agents' browser,
+	// "off" for none; empty means look for one on PATH.
+	Browser string
 }
 
 // Providers holds model-provider endpoints and keys for the gateway.
@@ -119,6 +125,9 @@ func LoadServer() (Server, error) {
 		GoogleClientID:     os.Getenv("LUX_GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("LUX_GOOGLE_CLIENT_SECRET"),
 		GitHubAPIURL:       strings.TrimRight(env("LUX_GITHUB_API_URL", "https://api.github.com"), "/"),
+		Browser:            os.Getenv("LUX_BROWSER"),
+		SlackBotToken:      os.Getenv("LUX_SLACK_BOT_TOKEN"),
+		SlackAppToken:      os.Getenv("LUX_SLACK_APP_TOKEN"),
 	}
 	s.RunnerCmd, s.RunnerNote = ResolveRunner()
 	s.MaxConcurrent = 4

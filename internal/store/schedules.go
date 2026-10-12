@@ -30,14 +30,16 @@ type Schedule struct {
 	LastTaskID  string     `json:"last_task_id,omitempty"`
 	LastError   string     `json:"last_error,omitempty"`
 	CreatedBy   string     `json:"created_by,omitempty"`
+	// Kind is "routine", or "follow_up" for a check-in the agent scheduled.
+	Kind string `json:"kind"`
 }
 
 const scheduleCols = `s.id, s.workspace_id, s.agent_id, a.name, s.name, s.source_file, s.mode, s.cron, s.run_at, s.prompt, s.enabled, s.paused,
-	s.next_run_at, s.last_run_at, coalesce(s.last_task_id,''), s.last_error, coalesce(s.created_by,'')`
+	s.next_run_at, s.last_run_at, coalesce(s.last_task_id,''), s.last_error, coalesce(s.created_by,''), s.kind`
 
 func scanSchedule(row pgx.Row, s *Schedule) error {
 	return row.Scan(&s.ID, &s.WorkspaceID, &s.AgentID, &s.AgentName, &s.Name, &s.SourceFile, &s.Mode, &s.Cron, &s.RunAt, &s.Prompt,
-		&s.Enabled, &s.Paused, &s.NextRunAt, &s.LastRunAt, &s.LastTaskID, &s.LastError, &s.CreatedBy)
+		&s.Enabled, &s.Paused, &s.NextRunAt, &s.LastRunAt, &s.LastTaskID, &s.LastError, &s.CreatedBy, &s.Kind)
 }
 
 // syncSchedulesTx makes the agent's schedules match the valid schedules in
@@ -100,7 +102,7 @@ func syncSchedulesTx(ctx context.Context, tx pgx.Tx, agentID string, validation 
 // ListSchedules lists a workspace's schedules, optionally for one agent.
 func (s *Store) ListSchedules(ctx context.Context, wsID, agentID string) ([]Schedule, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT `+scheduleCols+` FROM schedules s JOIN agents a ON a.id = s.agent_id
-		WHERE s.workspace_id = $1 AND ($2 = '' OR s.agent_id = $2) ORDER BY a.name, s.name`, wsID, agentID)
+		WHERE s.workspace_id = $1 AND ($2 = '' OR s.agent_id = $2) AND s.kind = 'routine' ORDER BY a.name, s.name`, wsID, agentID)
 	if err != nil {
 		return nil, err
 	}

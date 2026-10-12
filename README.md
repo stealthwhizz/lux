@@ -14,7 +14,10 @@ Every Lux agent is a [gitagent](https://github.com/open-gitagent/gitagent): a fo
 - **Chat-first desktop app.** Each agent is one ongoing conversation. Agents ask questions with answer buttons, show what they are doing as they work, and put their work in files you can open and save.
 - **Asks before it acts.** Workspace rules decide what an agent may do alone and what needs a person. Approvals appear inline in the chat and in **Needs you**, and maker-checker (a second person approves) is available. See [docs/policy.md](docs/policy.md).
 - **Always on.** Tasks, routines and approvals live on the server. Closing the app or the laptop does not stop them.
+- **It owns the work, not just the chat.** Each agent keeps a **Work** panel current (its job, what it's doing, what it's waiting on from you, decisions, deadlines), schedules its own follow-ups, and remembers your preferences in a **Memory** you can read and edit.
 - **Routines.** "Every weekday at 8:00, summarise my inbox", posted into the agent's thread.
+- **Reach it where you are.** System notifications when an agent needs you or replies, and a **Lux bot in Slack**: talk to your agents in a DM and approve with a button.
+- **Its own browser.** Agents can open and read websites, and click and type with your approval. The browser can only reach the public internet.
 - **Connectors.** People connect their own Google (Gmail, Calendar, Drive), Microsoft 365 (Outlook, calendar, OneDrive) and Slack accounts. Agents act as that person and see only what that person can see. Tokens are encrypted on the server and never reach the agent. See [docs/connectors.md](docs/connectors.md).
 - **Any model.** Lyzr, Anthropic, OpenAI or a local model through Ollama. Administrators add keys in the app and choose the model new agents use. Keys stay in the server. See [docs/models.md](docs/models.md).
 - **Attachments and files.** Attach documents to a message (Word and PDF are converted to text for the agent). Each agent keeps a workspace folder between conversations.
@@ -96,17 +99,18 @@ To run Lux for a team, see [docs/self-hosting.md](docs/self-hosting.md).
 ## What works and what doesn't
 
 Verified end to end with real services:
-- Agents running on Lyzr (a manager agent with sub-agents): multi-turn conversations, files kept between turns, attachments, routines, approvals.
+- Agents running on Lyzr (a manager agent with sub-agents): multi-turn conversations, files kept between turns, attachments, routines, approvals, and the agent keeping its Work status, scheduling its own follow-ups, saving to memory and opening websites in its browser.
 - A local llama3.2 model through Ollama runs and names agents. A 3B model is too small to use agent tools reliably, so use a larger one.
 
 Tested only against stand-in services (no real accounts were available):
-- The Google, Microsoft 365 and Slack connectors.
+- The Google, Microsoft 365 and Slack connectors, and the Slack bot.
 - The Anthropic and OpenAI providers (Lyzr and Ollama were tested for real).
 
 Not built yet:
 - Signed releases and a one-line installer. For now, build from source.
 - Sign-in by email or phone. People sign in with an API token.
-- Push notifications for approvals.
+- Push notifications to phones (desktop notifications and the Slack bot exist).
+- Web search: search engines block automated browsers, so agents need a search service (not built yet).
 - Network isolation for sandboxed runs. They share the host's network.
 - Agents are shared within a workspace. Per-person private agents are not built yet.
 

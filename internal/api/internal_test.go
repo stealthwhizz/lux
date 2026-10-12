@@ -2,8 +2,11 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/open-gitagent/lux/internal/executor"
 	"github.com/open-gitagent/lux/internal/ids"
 )
 
@@ -126,5 +129,26 @@ func TestAbsolutePathsInsideTheRunAreJudgedAsRelative(t *testing.T) {
 	}
 	if r := e.expect(e.do("POST", path, tok, map[string]any{"tool": "read", "args": map[string]any{"path": "/data/runs/t/1/spec.json"}}), 200); r.body["decision"] != "pending" {
 		t.Fatalf("read outside = %s", r.raw)
+	}
+}
+
+func TestApprovalTextShowsRunPathsAsRelative(t *testing.T) {
+	e := newEnv(t, nil)
+	_, runID, tok := e.runFor(t)
+	dir := "/data/runs/task_x/1"
+	if err := e.st.SetRunHandle(context.Background(), runID, executor.Handle{Provider: "local", Dir: dir}.JSON()); err != nil {
+		t.Fatal(err)
+	}
+	agentDir := dir + "/agent"
+	cmd := "find " + agentDir + "/workspace -maxdepth 1 && ls " + agentDir + strings.Repeat(" ", 150) + " && ls " + agentDir + "/memory"
+	r := e.expect(e.do("POST", "/internal/v1/runs/"+runID+"/tool-calls", tok, map[string]any{"tool": "cli", "args": map[string]any{"command": cmd}}), 200)
+	ap, _ := e.st.GetApproval(context.Background(), e.ws.ID, r.body["approval_id"].(string))
+	if strings.Contains(ap.Summary, "/data/runs") || !strings.HasPrefix(ap.Summary, "cli: find workspace -maxdepth 1 && ls .") {
+		t.Fatalf("summary = %q", ap.Summary)
+	}
+	var details map[string]any
+	_ = json.Unmarshal(ap.Details, &details)
+	if got := details["args"].(map[string]any)["command"].(string); strings.Contains(got, "/data/runs") || !strings.HasSuffix(got, "&& ls memory") {
+		t.Fatalf("shown command = %q", got)
 	}
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentDefinition } from "../../shared/ipc";
-import type { Agent, Approval, Attachment, Conversation, Message, ServerStatus } from "../../shared/types";
+import type { Agent, AgentWork, Approval, Attachment, Conversation, Message, ServerStatus } from "../../shared/types";
 import type { Nav } from "../App";
 import { lux, useLoad, useWorkspaceChanges } from "../lib/lux";
 import { ErrorNotice, explain, useToast } from "../components/common";
@@ -14,6 +14,7 @@ import { MenuItems, PROVIDERS, Popover, RenameField, useAgentActions, useCreateA
 import { AttachmentChips, FileChips, FilesPanel } from "../components/Files";
 import { ModelsList } from "../components/Models";
 import { RoutinesPanel } from "../components/Routines";
+import { MemoryPanel, WorkPanel } from "../components/Work";
 
 /**
  * The main pane. Each agent is one ongoing thread (target = agent id);
@@ -175,7 +176,10 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
   const { events } = useTaskEvents(active);
   const toast = useToast();
   const body = useRef<HTMLDivElement>(null);
-  const [panel, setPanel] = useState<"" | "files" | "routines">("");
+  const [panel, setPanel] = useState<"" | "files" | "routines" | "work" | "memory">("");
+  const work = useLoad<AgentWork>(() => lux().agents.work(agent.id), [agent.id]);
+  const status = work.data?.status?.status;
+  const waiting = status?.waiting_on?.length ?? 0;
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const closeMenu = useCallback(() => setMenu(false), []);
@@ -185,11 +189,12 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
     if (!taskId || taskId === active || !active) {
       conv.reload();
       approvals.reload();
+      work.reload();
     }
   });
   useEffect(() => {
     body.current?.scrollTo({ top: body.current.scrollHeight });
-  }, [conv.data?.messages.length, events.length]);
+  }, [conv.data?.messages.length, events.length, approvals.data?.length]); // approvals load after events: keep the card in view
 
   async function send(content: string, attachments: string[]) {
     const r = conversationId ? await lux().conversations.send(conversationId, content, attachments) : await lux().conversations.create(agent.slug, content, attachments);
@@ -223,13 +228,15 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
               <AgentAvatar slug={agent.slug} status={state} size={28} />
               <span className="head-text">
                 <h1>{agent.name}<ChevronIcon /></h1>
-                <span className={`head-status ${state}`}>{agent.disabled ? "Off" : state === "needs" ? "Needs you" : state === "working" ? "Working…" : agent.description}</span>
+                <span className={`head-status ${state}`}>{agent.disabled ? "Paused" : state === "needs" ? "Needs you" : state === "working" ? "Working…" : status?.doing ?? agent.description}</span>
               </span>
             </button>
           )}
           {menu && (
             <Popover label={agent.name} className="down" onClose={closeMenu}>
               <MenuItems close={closeMenu} items={[
+                { label: "Work", run: () => setPanel("work") },
+                { label: "Memory", run: () => setPanel("memory") },
                 { label: "Files", run: () => setPanel("files") },
                 { label: "Routines", run: () => setPanel("routines") },
                 { label: "Edit", run: () => nav.go("conversations", "edit:" + agent.id) },
@@ -238,6 +245,10 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
             </Popover>
           )}
         </div>
+        <button className={`work-btn${panel === "work" ? " on" : ""}${waiting ? " needs" : ""}`} onClick={() => setPanel(panel === "work" ? "" : "work")}
+          aria-expanded={panel === "work"} title="What it is working on">
+          Work{waiting > 0 && <span className="work-count" aria-label={`${waiting} waiting on you`}>{waiting}</span>}
+        </button>
         {actions.dialog}
       </header>
       <div className="chat-body" ref={body} aria-live="polite">
@@ -274,6 +285,8 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
       </div>
       {panel === "files" && <FilesPanel agent={agent.id} onClose={() => setPanel("")} />}
       {panel === "routines" && <RoutinesPanel agent={agent.id} agentName={agent.name} onClose={() => setPanel("")} />}
+      {panel === "work" && <WorkPanel agent={agent} active={active} onClose={() => setPanel("")} onChanged={onChanged} openRoutines={() => setPanel("routines")} />}
+      {panel === "memory" && <MemoryPanel agent={agent} onClose={() => setPanel("")} />}
       <Composer placeholder={active ? `${agent.name} is working` : `Message ${agent.name}`} disabled={!!active || agent.disabled} onSend={send} onStop={active ? stop : undefined}
         onAttach={async () => {
           const r = await lux().files.attach(agent.id);

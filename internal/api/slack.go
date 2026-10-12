@@ -169,13 +169,16 @@ func (s *Server) pasteSlackToken(w http.ResponseWriter, r *http.Request) {
 
 // saveSlack checks a user token with Slack and keeps it encrypted.
 func (s *Server) saveSlack(ctx context.Context, userID, tok string) error {
-	account, err := s.slackClient().Account(ctx, tok)
+	account, slackID, err := s.slackClient().Account(ctx, tok)
 	if err != nil {
 		return err
 	}
 	b, _ := json.Marshal(map[string]string{"access_token": tok})
 	if err := s.Store.SaveConnection(ctx, userID, "slack", account, strings.Join(connectors.SlackUserScopes, ","), s.Box.Seal(b, []byte(userID+"/slack"))); err != nil {
 		return errors.New("Lux could not save the connection")
+	}
+	if err := s.Store.SetConnectionExternalID(ctx, userID, "slack", slackID); err != nil {
+		return err
 	}
 	s.auditUser(ctx, userID, "connector.connect", map[string]any{"provider": "slack", "account": account})
 	return nil

@@ -146,6 +146,7 @@ function handlers(routes: Record<string, (init: any) => Response>, secure = true
   const { f, calls } = fakeFetch(routes);
   const pushed: any[] = [];
   const saved: [string, Uint8Array][] = [];
+  const notified: [number, unknown][] = [];
   const h = new Handlers({
     profiles,
     appInfo: () => ({ version: "t", platform: "linux", secureStorage: secure, storageBackend: "x" }),
@@ -154,9 +155,10 @@ function handlers(routes: Record<string, (init: any) => Response>, secure = true
     luxCLI: () => null,
     saveFile: async (name, bytes) => { saved.push([name, bytes]); return true; },
     pickFiles: async () => [{ name: "notes.txt", bytes: new TextEncoder().encode("hello") }],
+    notify: (owner, n) => notified.push([owner, n]),
     fetchImpl: f,
   });
-  return { h, calls, profiles, pushed, saved };
+  return { h, calls, profiles, pushed, saved, notified };
 }
 
 const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json" } });
@@ -200,7 +202,7 @@ test("an unreachable server is reported clearly", async () => {
   const h = new Handlers({
     profiles: new ProfileStore({ ...d, box: box(true) }),
     appInfo: () => ({ version: "t", platform: "linux", secureStorage: true, storageBackend: "x" }),
-    openExternal: async () => {}, push: () => {}, luxCLI: () => null, saveFile: async () => false, pickFiles: async () => [],
+    openExternal: async () => {}, push: () => {}, luxCLI: () => null, saveFile: async () => false, pickFiles: async () => [], notify: () => {},
     fetchImpl: (async () => { throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }); }) as any,
   });
   const r = await h.invoke("server.status", undefined, 1);
@@ -406,4 +408,21 @@ test("an agent's choices block becomes answer buttons and leaves the text", asyn
   const mid = "```choices\nA\n```\nThen more text";
   assert.deepEqual(splitChoices(mid), { text: mid, choices: [] });
   assert.equal(splitChoices("```choices\n1\n2\n3\n4\n5\n6\n```").choices.length, 5);
+});
+
+test("notifications go through the main process, plain text and short", async () => {
+  const { h, notified } = handlers({});
+  assert.equal((await h.invoke("app.notify", { title: "Trip Planner needs you", body: "Wants to run ls", agent: "agt_1" }, 7)).ok, true);
+  assert.deepEqual(notified, [[7, { title: "Trip Planner needs you", body: "Wants to run ls", agent: "agt_1" }]]);
+  assert.equal((await h.invoke("app.notify", { title: "two\nlines", body: "" }, 7)).ok, false);
+  assert.equal((await h.invoke("app.notify", { title: "x", body: "y".repeat(301) }, 7)).ok, false);
+  assert.equal((await h.invoke("app.notify", { title: "x", body: "", url: "https://evil.example" }, 7)).ok, false);
+});
+
+test("notification text is plain and short", async () => {
+  const { approvalText, replyText } = await import("../../src/renderer/lib/notify");
+  assert.equal(approvalText("cli: ls workspace"), "Wants to run ls workspace");
+  assert.equal(approvalText("lux__gmail_send: to=a@b.c"), "Wants to gmail_send: to=a@b.c");
+  assert.equal(replyText("**Done** — saved `plan.md`\n\n```choices\nA\n```"), "Done — saved plan.md");
+  assert.ok(replyText("x ".repeat(200)).length <= 160);
 });

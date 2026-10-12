@@ -130,19 +130,22 @@ func (s *Server) toolCall(w http.ResponseWriter, r *http.Request) {
 	}
 	// Agents often name files in their own run folder by absolute path;
 	// judge those like the relative paths they are.
-	if p, ok := req.Args["path"].(string); ok {
-		if h, err := executor.ParseHandle(a.run.Handle); err == nil && h.Dir != "" {
-			req.Args["path"] = relativeToAgent(filepath.Join(h.Dir, "agent"), p)
-		}
+	agentDir := ""
+	if h, err := executor.ParseHandle(a.run.Handle); err == nil && h.Dir != "" {
+		agentDir = filepath.Join(h.Dir, "agent")
+	}
+	if p, ok := req.Args["path"].(string); ok && agentDir != "" {
+		req.Args["path"] = relativeToAgent(agentDir, p)
 	}
 	d := pol.EvaluateTool(req.Tool, req.Args, policy.SupervisionFromManifest(rev.Manifest))
 	switch d.Action {
 	case policy.ActionAllow:
 		writeJSON(w, http.StatusOK, toolDecision{Decision: "allow", Rule: d.Rule})
 	case policy.ActionRequireApproval:
+		shown := shortenArgs(clipArgs(req.Args), agentDir) // shorten before the summary is cut to length
 		apr, err := s.Store.RequestApproval(ctx, store.NewApproval{
-			TaskID: t.ID, Kind: "tool_call", Summary: toolSummary(req.Tool, req.Args),
-			Details: map[string]any{"tool": req.Tool, "args": clipArgs(req.Args), "reason": d.Reason, "args_hash": ids.HashHex(connectors.ArgsKey(req.Args))},
+			TaskID: t.ID, Kind: "tool_call", Summary: toolSummary(req.Tool, shown),
+			Details: map[string]any{"tool": req.Tool, "args": shown, "reason": d.Reason, "args_hash": ids.HashHex(connectors.ArgsKey(req.Args))},
 			Rule:    d.Rule, Expires: time.Duration(pol.ApprovalTimeout()) * time.Second,
 		})
 		if err != nil {
@@ -238,6 +241,26 @@ func toolSummary(tool string, args map[string]any) string {
 		return tool
 	}
 	return tool + ": " + detail
+}
+
+// shortenRunPaths shows the run's own folder as relative paths in what
+// people read (the server's directories mean nothing to them). Only the
+// text changes: rules and approvals still match the real arguments.
+func shortenRunPaths(summary, agentDir string) string {
+	if agentDir == "" {
+		return summary
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(summary, agentDir+"/", ""), agentDir, ".")
+}
+
+// shortenArgs applies shortenRunPaths to the text arguments people are shown.
+func shortenArgs(args map[string]any, agentDir string) map[string]any {
+	for k, v := range args {
+		if s, ok := v.(string); ok {
+			args[k] = shortenRunPaths(s, agentDir)
+		}
+	}
+	return args
 }
 
 // clipArgs bounds what is stored with an approval.

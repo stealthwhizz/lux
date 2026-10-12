@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Agent, Approval, Change, Conversation, Me, ProfilesState, ServerStatus } from "../shared/types";
 import { lux, startWorkspaceFeed, stopWorkspaceFeed, useLoad, useWorkspaceChanges } from "./lib/lux";
 import { ToastProvider } from "./components/common";
+import { useNotifications } from "./lib/notify";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ChatView } from "./views/ChatView";
 import { Sidebar, latestByAgent } from "./components/Sidebar";
@@ -73,6 +74,15 @@ export function App() {
     setView(v);
     setTarget(t);
   }, []);
+
+  // System notifications for approvals and replies; clicking one opens the agent.
+  useNotifications(pending.data, convs.data);
+  useEffect(() => {
+    const stop = lux().events.onEvent((m) => {
+      if (m.subscription === "notify" && m.kind === "open") go("conversations", (m.data as { agent: string }).agent);
+    });
+    return stop;
+  }, [go]);
 
   // Keyboard: Ctrl/Cmd+K palette, Ctrl/Cmd+1..5 views, Ctrl/Cmd+, settings.
   useEffect(() => {

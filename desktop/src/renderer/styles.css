@@ -552,3 +552,20 @@ button.head-btn:hover, button.head-btn[aria-expanded="true"] { background: var(-
 .paste-token .setup-steps { font-size: var(--t-xs); }
 .key-row.flat { padding: 0; }
 .copyable { user-select: all; padding: 1px 5px; border-radius: 5px; background: var(--sunken); font-size: var(--t-xs); overflow-wrap: anywhere; }
+
+/* Work: the agent's job, what it is doing, and what it needs from you. */
+.work-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line-strong); background: none; color: var(--ink-2); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: var(--t-sm); cursor: pointer; }
+.work-btn:hover, .work-btn.on { background: var(--side-hover); color: var(--ink); }
+.work-btn.needs { border-color: color-mix(in srgb, var(--lamp) 60%, var(--line)); color: var(--ink); }
+.work-count { min-width: 18px; height: 18px; display: inline-grid; place-items: center; border-radius: 999px; background: var(--lamp); color: var(--on-lamp); font-size: var(--t-xs); font-weight: 650; padding: 0 5px; }
+.work-panel .files-list { gap: 14px; align-content: start; }
+.work-job { font-size: var(--t-md); font-weight: 650; margin: 0; }
+.work-sec { display: grid; gap: 4px; }
+.work-sec p { margin: 0; }
+.work-sec ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: var(--t-sm); }
+.work-label { font-size: var(--t-xs); font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.work-sec.needs { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--lamp) 12%, var(--surface)); }
+.work-sec.needs .work-label { color: var(--lamp-ink); }
+.work-follow { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.work-follow .link { margin-left: auto; }
+.memory-text { min-height: 260px; font-size: var(--t-sm); }

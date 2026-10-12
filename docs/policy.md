@@ -46,6 +46,7 @@ Before every tool call the runtime asks `luxd`. Rules are checked in order and t
 - `read` needs approval outside the agent's directory and is allowed inside it.
 - `memory`, `task_tracker` and `skill_learner` are allowed.
 - Connector tools, named `lux__<tool>` (see [connectors.md](connectors.md)): reading is allowed (`lux__gmail_search`, `lux__drive_read`, `lux__outlook_events`, `lux__slack_read` and the like). Sending and creating need approval: `lux__gmail_draft`, `lux__gmail_send`, `lux__calendar_create`, `lux__outlook_send`, `lux__outlook_create_event` and `lux__slack_send`.
+- Lux's own tools: `lux__update_status` and `lux__follow_up` are allowed. The browser: `lux__browser_open`, `lux__browser_read` and `lux__browser_back` are allowed; `lux__browser_click` and `lux__browser_type` need approval, because they can submit forms.
 - Every other tool, including other MCP tools, is denied.
 
 luxd checks connector calls itself when it serves them, so these rules hold even for a runtime that skips the check. An approval for a connector call matches its exact arguments and can be used once.

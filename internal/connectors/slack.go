@@ -23,6 +23,9 @@ const (
 var SlackUserScopes = []string{"search:read", "channels:read", "groups:read", "im:read", "mpim:read",
 	"channels:history", "groups:history", "im:history", "mpim:history", "chat:write", "users:read"}
 
+// SlackBotScopes let the Lux bot read and answer direct messages.
+var SlackBotScopes = []string{"chat:write", "im:history", "im:read", "im:write"}
+
 // Slack is a Slack app's OAuth client. Connecting by pasting a user token
 // needs no client; signing in through Slack does.
 type Slack struct {
@@ -48,14 +51,18 @@ func (s *Slack) client() *http.Client {
 // SlackManifest is the app an administrator creates in their workspace;
 // redirect is empty when people connect by pasting a token.
 func SlackManifest(redirect string) string {
-	oauth := map[string]any{"scopes": map[string]any{"user": SlackUserScopes}}
+	oauth := map[string]any{"scopes": map[string]any{"user": SlackUserScopes, "bot": SlackBotScopes}}
 	if redirect != "" {
 		oauth["redirect_urls"] = []string{redirect}
 	}
 	b, _ := json.Marshal(map[string]any{
 		"display_information": map[string]any{"name": "Lux", "description": "Your Lux agents, working in Slack as you"},
-		"oauth_config":        oauth,
-		"settings":            map[string]any{"org_deploy_enabled": false, "socket_mode_enabled": false, "token_rotation_enabled": false},
+		// The bot: people message their agents in a DM with Lux and approve with buttons.
+		"features": map[string]any{"bot_user": map[string]any{"display_name": "Lux", "always_online": true},
+			"app_home": map[string]any{"messages_tab_enabled": true, "messages_tab_read_only_enabled": false}},
+		"oauth_config": oauth,
+		"settings": map[string]any{"org_deploy_enabled": false, "socket_mode_enabled": true, "token_rotation_enabled": false,
+			"event_subscriptions": map[string]any{"bot_events": []string{"message.im"}}, "interactivity": map[string]any{"is_enabled": true}},
 	})
 	return string(b)
 }
@@ -89,15 +96,49 @@ func (s *Slack) Exchange(ctx context.Context, code, redirect string) (string, er
 }
 
 // Account checks a user token and names who it belongs to.
-func (s *Slack) Account(ctx context.Context, token string) (string, error) {
+// The second value is the person's Slack id, "team/user", which links
+// Slack messages to their Lux account.
+func (s *Slack) Account(ctx context.Context, token string) (string, string, error) {
 	var out struct {
-		User string `json:"user"`
-		Team string `json:"team"`
+		User   string `json:"user"`
+		Team   string `json:"team"`
+		UserID string `json:"user_id"`
+		TeamID string `json:"team_id"`
 	}
 	if err := s.call(ctx, token, "auth.test", nil, &out); err != nil {
+		return "", "", err
+	}
+	return out.User + " in " + out.Team, out.TeamID + "/" + out.UserID, nil
+}
+
+// ConnectionsOpen returns a Socket Mode address for an app-level token (xapp-).
+func (s *Slack) ConnectionsOpen(ctx context.Context, appToken string) (string, error) {
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := s.call(ctx, appToken, "apps.connections.open", nil, &out); err != nil {
 		return "", err
 	}
-	return out.User + " in " + out.Team, nil
+	return out.URL, nil
+}
+
+// Post sends a bot message and returns its timestamp; blocks may be nil.
+func (s *Slack) Post(ctx context.Context, botToken, channel, text string, blocks any) (string, error) {
+	form := url.Values{"channel": {channel}, "text": {text}}
+	if blocks != nil {
+		b, _ := json.Marshal(blocks)
+		form.Set("blocks", string(b))
+	}
+	var out struct {
+		TS string `json:"ts"`
+	}
+	err := s.call(ctx, botToken, "chat.postMessage", form, &out)
+	return out.TS, err
+}
+
+// Update replaces a bot message (for example, an approval once decided).
+func (s *Slack) Update(ctx context.Context, botToken, channel, ts, text string) error {
+	return s.call(ctx, botToken, "chat.update", url.Values{"channel": {channel}, "ts": {ts}, "text": {text}, "blocks": {"[]"}}, nil)
 }
 
 // call makes a Slack Web API request; Slack reports failures as ok:false.

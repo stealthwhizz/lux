@@ -40,6 +40,8 @@ type connectorInfo struct {
 	SetupURL string `json:"setup_url,omitempty"`
 	// RedirectURI is what an administrator registers with the provider.
 	RedirectURI string `json:"redirect_uri,omitempty"`
+	// Bot (Slack): "ready" when people can message their agents in Slack.
+	Bot string `json:"bot,omitempty"`
 }
 
 func (s *Server) googleRedirect() string { return s.Cfg.PublicURL + "/v1/connectors/google/callback" }
@@ -61,6 +63,10 @@ func (s *Server) listConnectors(w http.ResponseWriter, r *http.Request) {
 		SetupURL: connectors.SlackManifestURL(s.slackRedirectIfPossible())}
 	for _, t := range connectors.SlackTools {
 		sl.Tools = append(sl.Tools, t.Name)
+	}
+	sl.Bot = "not_set_up"
+	if _, ok := s.slackBot(r.Context()); ok {
+		sl.Bot = "ready"
 	}
 	if !sl.SignIn && !s.slackSignInPossible() {
 		sl.Note = "Slack signs in only to Lux servers on an https:// address, so on this server you connect by pasting your Slack token."
@@ -223,10 +229,16 @@ type rpcRequest struct {
 // person who started its task. Scheduled tasks from a repository have no
 // such person and get none.
 func (s *Server) connectorTools(ctx context.Context, t *store.Task) []connectors.Tool {
-	if t.CreatedBy == "" {
-		return nil
+	if t.CreatedBy == "" { // no person: no accounts, but its own tools
+		if s.Browser != nil {
+			return append(append([]connectors.Tool{}, connectors.LuxTools...), connectors.BrowserTools...)
+		}
+		return connectors.LuxTools
 	}
-	var out []connectors.Tool
+	out := append([]connectors.Tool{}, connectors.LuxTools...)
+	if s.Browser != nil {
+		out = append(out, connectors.BrowserTools...)
+	}
 	if c, err := s.Store.GetConnection(ctx, t.CreatedBy, "google"); err == nil && s.google(ctx) != nil {
 		for _, tl := range connectors.GoogleTools {
 			if !strings.HasPrefix(tl.Name, "drive_") || strings.Contains(c.Scopes, connectors.DriveScope) {
@@ -354,6 +366,12 @@ func (s *Server) callConnectorTool(ctx context.Context, t *store.Task, name stri
 	defer cancel()
 	provider, out, err := "google", "", error(nil)
 	switch tool.Provider {
+	case "lux":
+		provider = "lux"
+		out, err = s.runLuxTool(ctx, t, tool.Name, args)
+	case "browser":
+		provider = "browser"
+		out, err = s.Browser.Run(ctx, t.AgentID, tool.Name, args)
 	case "slack":
 		provider = "slack"
 		var tok string

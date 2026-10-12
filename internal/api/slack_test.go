@@ -109,7 +109,7 @@ func TestSlackByPastedToken(t *testing.T) {
 	}
 
 	e.expect(e.do("DELETE", "/v1/connectors/slack", e.owner, nil), 204)
-	if tools := mcp("tools/list", map[string]any{})["tools"].([]any); len(tools) != 0 {
+	if tools := mcp("tools/list", map[string]any{})["tools"].([]any); len(tools) != len(connectors.LuxTools) {
 		t.Fatalf("tools after disconnect = %v", tools)
 	}
 }

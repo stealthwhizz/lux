@@ -85,7 +85,7 @@ func TestMicrosoft365EndToEnd(t *testing.T) {
 	mcp := func(method string, params any) map[string]any {
 		return e.expect(e.do("POST", "/internal/v1/runs/"+runID+"/mcp", tok, map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params}), 200).body["result"].(map[string]any)
 	}
-	if n := len(mcp("tools/list", map[string]any{})["tools"].([]any)); n != len(connectors.MicrosoftTools) {
+	if n := len(mcp("tools/list", map[string]any{})["tools"].([]any)); n != len(connectors.LuxTools)+len(connectors.MicrosoftTools) {
 		t.Fatalf("tools = %d", n)
 	}
 	call := func(name string, args map[string]any) (string, bool) {

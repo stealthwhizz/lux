@@ -91,7 +91,11 @@ func (o *Orchestrator) startScheduled(ctx context.Context, sc store.Schedule, at
 		return "", "could not create the task: " + err.Error()
 	}
 	if created && convID != "" {
-		if _, err := o.Store.AddSystemMessage(ctx, convID, "Routine: "+sc.Name, t.ID); err != nil {
+		note := "Routine: " + sc.Name
+		if sc.Kind == "follow_up" {
+			note = sc.Name // already reads "Follow-up: …"
+		}
+		if _, err := o.Store.AddSystemMessage(ctx, convID, note, t.ID); err != nil {
 			o.Log.Error("note routine in thread", "task", t.ID, "err", err)
 		}
 	}

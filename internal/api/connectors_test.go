@@ -92,7 +92,7 @@ func TestConnectorsEndToEnd(t *testing.T) {
 		t.Fatalf("initialize = %s", r.raw)
 	}
 	tools := mcp("tools/list", map[string]any{}).body["result"].(map[string]any)["tools"].([]any)
-	if len(tools) != len(connectors.GoogleTools) {
+	if len(tools) != len(connectors.LuxTools)+len(connectors.GoogleTools) {
 		t.Fatalf("tools = %v", tools)
 	}
 	call := func(name string, args map[string]any) (string, bool) {
@@ -136,7 +136,7 @@ func TestConnectorsEndToEnd(t *testing.T) {
 
 	// Disconnect: the tools go away.
 	e.expect(e.do("DELETE", "/v1/connectors/google", e.owner, nil), 204)
-	if tools := mcp("tools/list", map[string]any{}).body["result"].(map[string]any)["tools"].([]any); len(tools) != 0 {
+	if tools := mcp("tools/list", map[string]any{}).body["result"].(map[string]any)["tools"].([]any); len(tools) != len(connectors.LuxTools) {
 		t.Fatalf("tools after disconnect = %v", tools)
 	}
 }

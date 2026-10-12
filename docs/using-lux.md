@@ -31,6 +31,19 @@ Type and press Enter (Shift+Enter for a new line). While the agent works, a card
 
 **Files.** Each agent has a workspace folder that is kept between conversations. Files it makes there appear as chips under its reply and in **Files** (in the agent menu), where you can preview and save them.
 
+## Work, follow-ups and memory
+
+Lux agents are not chat bots: each one owns ongoing work for you and keeps it moving between your messages.
+
+- **Work.** The **Work** button at the top of a chat (and **Work** in the agent menu) shows what the agent says it owns: its job, what it is doing, what it is **waiting on from you** (counted on the button), decisions, deadlines, its routines, and when it will next check back. Agents keep it current themselves with the `lux__update_status` tool. **Pause** stops the agent and its routines and follow-ups until you resume it.
+- **Follow-ups.** When something needs checking later, an agent schedules its own check-in (`lux__follow_up`), from 5 minutes to 90 days ahead, at most 5 waiting at once. It runs again at that time in your conversation. You can cancel a follow-up from the Work panel.
+- **Memory.** **Memory** in the agent menu shows what the agent has saved about you (preferences, people, decisions). It reads this at the start of every run. You can correct or add to it. Agents imported from a repository keep their memory there.
+- **A browser.** When the server has Chrome or Chromium, agents get their own browser that keeps its sign-ins: they can open pages, read them, and (with your approval) click and type. It can only reach the public internet, never addresses on your network. Search engines block automated browsers, so web search needs a different route for now.
+
+## Notifications
+
+When an agent needs your approval or replies while Lux is not the window you are using, you get a system notification; clicking it opens that agent. In Slack, the Lux bot does the same in your DM (see [connectors.md](connectors.md#the-lux-bot-in-slack)).
+
 ## Approvals
 
 What an agent may do alone is set by the workspace rules ([policy.md](policy.md)). By default an agent may read its own files and your connected accounts and write in its own workspace folder; a person must approve every shell command, writing or reading outside its folder, and anything that changes the outside world: sending email, posting in Slack, adding calendar events.

@@ -33,6 +33,7 @@ export function ConnectorsMenu({ onClose }: { onClose: () => void }) {
   const [waiting, setWaiting] = useState<string | null>(null);
   const [setup, setSetup] = useState<ConnectorInfo | null>(null);
   const [pasting, setPasting] = useState<ConnectorInfo | null>(null);
+  const [botSetup, setBotSetup] = useState<ConnectorInfo | null>(null);
   const toast = useToast();
 
   // While a sign-in is open in the browser, check back until it completes.
@@ -77,7 +78,7 @@ export function ConnectorsMenu({ onClose }: { onClose: () => void }) {
 
   // The setup dialog is rendered inside the dropdown so clicks in it don't close it.
   return (
-    <Popover label="Connectors" role="dialog" className="wide connectors-menu" onClose={setup ? () => {} : onClose}>
+    <Popover label="Connectors" role="dialog" className="wide connectors-menu" onClose={setup || botSetup ? () => {} : onClose}>
       <div className="menu-head">
         <strong>Connectors</strong>
         <span className="why">Accounts your agents can use for you. Agents never see the keys.</span>
@@ -92,6 +93,8 @@ export function ConnectorsMenu({ onClose }: { onClose: () => void }) {
               {waiting === c.id ? "Finish signing in in your browser…" : c.connected ? `Connected as ${c.account}${c.connected_at ? `, since ${shortTime(c.connected_at)}` : ""}` : c.description}
             </span>
             {c.last_error && <span className="connector-error">{c.last_error}</span>}
+            {c.id === "slack" && c.bot === "ready" && <span className="why ok">Message your agents in Slack: DM the Lux app</span>}
+            {c.id === "slack" && c.bot !== "ready" && c.can_setup && <button className="link quiet small" onClick={() => setBotSetup(c)}>Set up the Slack bot</button>}
           </span>
           {c.connected ? (
             c.note && c.sign_in
@@ -102,6 +105,7 @@ export function ConnectorsMenu({ onClose }: { onClose: () => void }) {
           )}
         </div>
       ))}
+      {botSetup && <SetupSlackBot c={botSetup} onClose={() => setBotSetup(null)} onSaved={() => { setBotSetup(null); list.reload(); toast("The Slack bot is on. People can DM the Lux app."); }} />}
       {pasting && <PasteToken c={pasting} onDone={() => { setPasting(null); list.reload(); toast(`Connected ${pasting.name}`); }} />}
       {setup?.id === "slack" && (
         <SetupSlack c={setup} onClose={() => setSetup(null)} onSaved={async () => {
@@ -284,6 +288,44 @@ function SetupMicrosoft({ c, onClose, onSaved }: { c: ConnectorInfo; onClose: ()
       <div className="foot">
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn primary" disabled={busy || !guid.test(id.trim()) || !tenant.trim() || secret.trim().length < 16} onClick={save}>Save and connect</button>
+      </div>
+    </Dialog>
+  );
+}
+
+/** Once per server: the Lux bot in Slack, over Socket Mode (no public address needed). */
+function SetupSlackBot({ c, onClose, onSaved }: { c: ConnectorInfo; onClose: () => void; onSaved: () => void }) {
+  const [bot, setBot] = useState("");
+  const [appTok, setAppTok] = useState("");
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  async function save() {
+    setBusy(true);
+    const r = await lux().connectors.setupBot(bot.trim(), appTok.trim());
+    setBusy(false);
+    if (!r.ok) return toast(explain(r.error), true);
+    onSaved();
+  }
+  return (
+    <Dialog title="Let people talk to their agents in Slack" onClose={onClose}>
+      <ol className="setup-steps">
+        <li><a href={c.setup_url} onClick={open(c.setup_url ?? "")}>Create the Lux app in Slack</a> (or use the one you made for Connect): it includes the bot, Socket Mode and buttons.</li>
+        <li><strong>Install App</strong> to your workspace, then copy the <strong>Bot User OAuth Token</strong> (xoxb-).</li>
+        <li>In <strong>Basic Information → App-Level Tokens</strong>, generate a token with the <strong>connections:write</strong> scope (xapp-).</li>
+        <li>People then link their Slack under Connectors and DM the Lux app. Their agents reply there, and approvals come with Allow buttons.</li>
+      </ol>
+      <div className="field">
+        <label htmlFor="sb-bot">Bot token</label>
+        <input id="sb-bot" className="input mono" type="password" autoComplete="off" value={bot} onChange={(e) => setBot(e.target.value)} placeholder="xoxb-…" />
+      </div>
+      <div className="field">
+        <label htmlFor="sb-app">App-level token</label>
+        <input id="sb-app" className="input mono" type="password" autoComplete="off" value={appTok} onChange={(e) => setAppTok(e.target.value)} placeholder="xapp-…" />
+        <span className="hint">Stored encrypted on the Lux server. Agents never see them.</span>
+      </div>
+      <div className="foot">
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn primary" disabled={busy || !bot.trim().startsWith("xoxb-") || !appTok.trim().startsWith("xapp-")} onClick={save}>{busy ? "Checking…" : "Turn on"}</button>
       </div>
     </Dialog>
   );

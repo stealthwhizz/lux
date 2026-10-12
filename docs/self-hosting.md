@@ -75,6 +75,8 @@ luxd reads its settings from the environment. In Compose they come from `deploy/
 | `LUX_GOOGLE_CLIENT_ID`, `LUX_GOOGLE_CLIENT_SECRET` | unset | Google OAuth client for connectors (Gmail, Calendar, Drive). The redirect address is `<LUX_PUBLIC_URL>/v1/connectors/google/callback`. An administrator can instead enter it in the app; Microsoft 365 and Slack are set up in the app only. See [connectors.md](connectors.md). |
 | `LUX_SECRET_KEY` | a key luxd creates in its data folder | 32 bytes, base64. Encrypts connector tokens, app secrets and model keys entered in the app. Back it up with the database: without it, people must connect again and administrators must re-enter keys. |
 | `LUX_SANDBOX` | on when bubblewrap works | `off` turns the sandbox executor off. |
+| `LUX_BROWSER` | the first Chrome or Chromium on `PATH` | Gives agents a browser (one per agent, profiles under the data folder, traffic only to public addresses through a luxd proxy). A path to the binary, or `off`. |
+| `LUX_SLACK_BOT_TOKEN`, `LUX_SLACK_APP_TOKEN` | unset | The Lux bot in Slack (Socket Mode): a bot token (`xoxb-`) and an app-level token (`xapp-`). An administrator can instead set them in the app. See [connectors.md](connectors.md#the-lux-bot-in-slack). |
 | `LUX_GITHUB_API_URL` | `https://api.github.com` | Where pull requests are opened (must be https). |
 | `LUX_ANTHROPIC_WORKSPACE_ID` | unset | Shown to operators only. |
 | `LUX_OLLAMA_BASE_URL`, `LUX_OLLAMA_DISABLED` | `http://127.0.0.1:11434/v1`, `false` | Ollama endpoint. Inside a container, 127.0.0.1 is the container itself: use the host's address, for example `http://host.containers.internal:11434/v1` with Podman. |

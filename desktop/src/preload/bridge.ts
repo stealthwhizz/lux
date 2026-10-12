@@ -3,7 +3,7 @@
 // Tauri) could provide the same object.
 import type { AgentDefinition, ChangeTarget, ImportInput, Operation, PushedEvent, Result, TaskFilter } from "../shared/ipc";
 import type {
-  Agent, AppInfo, ModelChoice, ModelProviders, Approval, Attachment, Change, ConnectorInfo, Conversation, FilePreview, Repository, Routine, WorkspaceFile, LocalServerStatus, Me, Message, ProfilesState, Report, ServerStatus, Task, TaskEvent,
+  Agent, AgentMemory, AgentWork, AppInfo, ModelChoice, ModelProviders, Approval, Attachment, Change, ConnectorInfo, Conversation, FilePreview, Repository, Routine, WorkspaceFile, LocalServerStatus, Me, Message, ProfilesState, Report, ServerStatus, Task, TaskEvent,
 } from "../shared/types";
 
 export type Invoke = (op: Operation, args?: unknown) => Promise<Result<unknown>>;
@@ -12,7 +12,10 @@ export type Listen = (listener: (msg: PushedEvent) => void) => () => void;
 export function buildBridge(invoke: Invoke, listen: Listen) {
   const call = <T>(op: Operation, args?: unknown) => invoke(op, args) as Promise<Result<T>>;
   return Object.freeze({
-    app: Object.freeze({ info: () => call<AppInfo>("app.info") }),
+    app: Object.freeze({
+      info: () => call<AppInfo>("app.info"),
+      notify: (title: string, body: string, agent?: string) => call<boolean>("app.notify", agent ? { title, body, agent } : { title, body }),
+    }),
     profiles: Object.freeze({
       list: () => call<ProfilesState>("profiles.list"),
       select: (name: string) => call<ProfilesState>("profiles.select", name),
@@ -35,6 +38,9 @@ export function buildBridge(invoke: Invoke, listen: Listen) {
       rename: (agent: string, name: string) => call<Agent>("agents.rename", { agent, name }),
       setDisabled: (agent: string, disabled: boolean) => call<Agent>("agents.setDisabled", { agent, disabled }),
       delete: (agent: string) => call<void>("agents.delete", agent),
+      work: (agent: string) => call<AgentWork>("agents.work", agent),
+      memory: (agent: string) => call<AgentMemory>("agents.memory", agent),
+      setMemory: (agent: string, text: string) => call<AgentMemory>("agents.setMemory", { agent, text }),
       introduce: (agent: string) => call<{ conversation: Conversation }>("agents.introduce", agent),
     }),
     tasks: Object.freeze({
@@ -71,6 +77,7 @@ export function buildBridge(invoke: Invoke, listen: Listen) {
       connect: (id: string) => call<{ opened: boolean }>("connectors.connect", id),
       disconnect: (id: string) => call<null>("connectors.disconnect", id),
       pasteToken: (token: string) => call<null>("connectors.pasteToken", token),
+      setupBot: (botToken: string, appToken: string) => call<null>("connectors.setupBot", { botToken, appToken }),
       /** Administrators: save the OAuth client people connect through. */
       setup: (id: string, clientId: string, clientSecret: string, tenant?: string) =>
         call<{ redirect_uri: string }>("connectors.setup", { id, clientId, clientSecret, ...(tenant ? { tenant } : {}) }),

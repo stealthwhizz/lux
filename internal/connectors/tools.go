@@ -311,7 +311,7 @@ func mimeHeader(s string) string {
 
 // ToolByName finds a connector tool.
 func ToolByName(name string) (Tool, bool) {
-	for _, t := range append(append(append([]Tool{}, GoogleTools...), SlackTools...), MicrosoftTools...) {
+	for _, t := range append(append(append(append(append([]Tool{}, LuxTools...), BrowserTools...), GoogleTools...), SlackTools...), MicrosoftTools...) {
 		if t.Name == name {
 			return t, true
 		}

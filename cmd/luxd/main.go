@@ -15,12 +15,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/open-gitagent/lux/internal/agentrepo"
 	"github.com/open-gitagent/lux/internal/api"
+	"github.com/open-gitagent/lux/internal/browser"
 	"github.com/open-gitagent/lux/internal/config"
 	"github.com/open-gitagent/lux/internal/connectors"
 	"github.com/open-gitagent/lux/internal/db"
@@ -243,6 +245,14 @@ func serve(args []string) error {
 		OrchestratorRunning: orch.Running,
 	}
 	srv.ReloadProviders(ctx) // add keys saved in the app
+	go srv.RunSlackBot(ctx)  // idle until an administrator sets the bot up
+	if bin := browser.Find(cfg.Browser); bin != "" {
+		srv.Browser = &browser.Manager{Bin: bin, DataRoot: filepath.Join(cfg.DataDir, "browser")}
+		defer srv.Browser.Close()
+		log.Info("agents have a browser", "binary", bin)
+	} else {
+		log.Info("agents have no browser: install Chromium or set LUX_BROWSER")
+	}
 	for _, p := range gateway.Describe(gw.Table()) {
 		log.Info("model provider", "name", p.Name, "base_url", p.BaseURL, "has_key", p.HasKey)
 	}

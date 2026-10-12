@@ -123,6 +123,16 @@ export interface TaskFilter { agent?: string; state?: string; limit?: number }
 
 export const validators = {
   "app.info": (_: unknown) => undefined,
+  // A system notification: plain text only, short, optionally naming the agent to open on click.
+  "app.notify": (a: unknown) => {
+    const o = obj(a, "notification");
+    onlyKeys(o, ["title", "body", "agent"], "notification");
+    return {
+      title: str(o.title, "title", { max: 100, re: /^[^\r\n]+$/ }),
+      body: str(o.body, "body", { min: 0, max: 300 }),
+      agent: o.agent === undefined ? undefined : slugOrId(o.agent),
+    };
+  },
   "profiles.list": (_: unknown) => undefined,
   "profiles.select": (a: unknown) => str(a, "profile", { max: 64, re: /^[A-Za-z0-9_.-]+$/ }),
   "profiles.add": (a: unknown): ProfileInput => {
@@ -156,6 +166,13 @@ export const validators = {
   },
   "agents.sync": (a: unknown) => slugOrId(a),
   "agents.delete": (a: unknown) => slugOrId(a),
+  "agents.work": (a: unknown) => slugOrId(a),
+  "agents.memory": (a: unknown) => slugOrId(a),
+  "agents.setMemory": (a: unknown) => {
+    const o = obj(a, "memory");
+    onlyKeys(o, ["agent", "text"], "memory");
+    return { agent: slugOrId(o.agent), text: str(o.text, "memory", { min: 0, max: 65536 }) };
+  },
   "agents.introduce": (a: unknown) => slugOrId(a),
   "agents.create": (a: unknown) => definition(a),
   "files.list": (a: unknown) => slugOrId(a),
@@ -261,6 +278,11 @@ export const validators = {
       tenant: id === "microsoft" ? str(o.tenant, "tenant", { max: 200, re: /^([0-9a-fA-F-]{36}|organizations|[a-z0-9-]+(\.[a-z0-9-]+)+)$/ }) : undefined,
     };
   },
+  "connectors.setupBot": (a: unknown) => {
+    const o = obj(a, "bot");
+    onlyKeys(o, ["botToken", "appToken"], "bot");
+    return { botToken: str(o.botToken, "bot token", { max: 300, re: /^xoxb-[A-Za-z0-9-]+$/ }), appToken: str(o.appToken, "app token", { max: 300, re: /^xapp-[A-Za-z0-9-]+$/ }) };
+  },
   // A Slack user token the person copied from their Slack app.
   "connectors.pasteToken": (a: unknown) => str(a, "token", { min: 15, max: 260, re: /^xoxp-[A-Za-z0-9-]+$/ }),
   "routines.list": (a: unknown) => slugOrId(a),
@@ -302,7 +324,7 @@ export function isOperation(op: unknown): op is Operation {
 /** Message pushed from main to the renderer for event subscriptions. */
 export interface PushedEvent {
   subscription: string;
-  kind: "event" | "end" | "error" | "status";
+  kind: "event" | "end" | "error" | "status" | "open";
   data: unknown;
 }
 

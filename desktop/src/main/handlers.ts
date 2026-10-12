@@ -19,6 +19,8 @@ export interface Deps {
   saveFile: (name: string, bytes: Uint8Array) => Promise<boolean>;
   /** Ask which files to attach; empty if the person cancelled. */
   pickFiles: () => Promise<{ name: string; bytes: Uint8Array }[]>;
+  /** Show a system notification; clicking it pushes {kind: "open", agent} to `owner`. */
+  notify: (owner: number, n: { title: string; body: string; agent?: string }) => void;
   fetchImpl?: typeof fetch;
 }
 
@@ -50,6 +52,10 @@ export class Handlers {
 
   private table: Record<Operation, Handler> = {
     "app.info": async () => this.d.appInfo(),
+    "app.notify": async (n: { title: string; body: string; agent?: string }, ctx) => {
+      this.d.notify(ctx.sender, n);
+      return true;
+    },
     "profiles.list": async () => this.d.profiles.state(),
     "profiles.select": async (name: string) => {
       this.d.profiles.select(name);
@@ -99,6 +105,9 @@ export class Handlers {
     },
     "agents.sync": async (a: string) => this.wsApi("POST", `/agents/${encodeURIComponent(a)}/sync`),
     "agents.delete": async (a: string) => this.wsApi("DELETE", `/agents/${encodeURIComponent(a)}`),
+    "agents.work": async (a: string) => this.wsApi("GET", `/agents/${encodeURIComponent(a)}/work`),
+    "agents.memory": async (a: string) => this.wsApi("GET", `/agents/${encodeURIComponent(a)}/memory`),
+    "agents.setMemory": async ({ agent, text }) => this.wsApi("PUT", `/agents/${encodeURIComponent(agent)}/memory`, { text }),
     "agents.introduce": async (a: string) => this.wsApi("POST", `/agents/${encodeURIComponent(a)}/introduce`),
     "agents.rename": async ({ agent, name }) => this.wsApi("PATCH", `/agents/${encodeURIComponent(agent)}`, { name }),
     "agents.setDisabled": async ({ agent, disabled }) => this.wsApi("PATCH", `/agents/${encodeURIComponent(agent)}`, { disabled }),
@@ -144,6 +153,7 @@ export class Handlers {
     },
     "connectors.disconnect": async (id: string) => this.api("DELETE", `/v1/connectors/${id}`),
     "connectors.pasteToken": async (token: string) => this.api("PUT", "/v1/connectors/slack/token", { token }),
+    "connectors.setupBot": async ({ botToken, appToken }) => this.api("PUT", "/v1/connectors/slack/bot", { bot_token: botToken, app_token: appToken }),
     "connectors.setup": async ({ id, clientId, clientSecret, tenant }) => this.api("PUT", `/v1/connectors/${id}/setup`, { client_id: clientId, client_secret: clientSecret, tenant }),
     "routines.list": async (agent: string) => (await this.wsApi<{ routines: unknown[] }>("GET", `/agents/${encodeURIComponent(agent)}/routines`)).routines,
     "routines.create": async ({ agent, ...r }) => this.wsApi("POST", `/agents/${encodeURIComponent(agent)}/routines`, r),

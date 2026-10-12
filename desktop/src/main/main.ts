@@ -1,5 +1,5 @@
 // Electron main process: window lifecycle, security policy, IPC.
-import { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, session, shell, type WebContents } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Notification, protocol, safeStorage, session, shell, type WebContents } from "electron";
 import { extname, join, normalize } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -97,6 +97,28 @@ function openExternal(url: string): Promise<void> {
   return shell.openExternal(url);
 }
 
+// Notifications come from the main process (the page has no notification
+// permission); tests record them instead of showing them.
+const notified: { title: string; body: string; agent?: string }[] = [];
+(globalThis as any).__luxNotified = notified;
+function notify(owner: number, n: { title: string; body: string; agent?: string }) {
+  if (TEST_MODE) {
+    notified.push(n);
+    return;
+  }
+  if (!Notification.isSupported()) return;
+  const note = new Notification({ title: n.title, body: n.body, silent: false });
+  note.on("click", () => {
+    const w = BrowserWindow.getAllWindows().find((x) => x.webContents.id === owner);
+    if (!w || w.isDestroyed()) return;
+    if (w.isMinimized()) w.restore();
+    w.show();
+    w.focus();
+    if (n.agent) w.webContents.send(EVENT_CHANNEL, { subscription: "notify", kind: "open", data: { agent: n.agent } });
+  });
+  note.show();
+}
+
 const rendererDir = join(__dirname, "..", "renderer");
 let mainWindow: BrowserWindow | null = null;
 
@@ -144,6 +166,7 @@ const handlers = new Handlers({
   luxCLI: findLuxCLI,
   saveFile,
   pickFiles,
+  notify,
 });
 
 // Only the app's own top-level frame may call into the main process.

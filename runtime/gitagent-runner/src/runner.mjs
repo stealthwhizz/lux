@@ -81,6 +81,13 @@ export async function waitForApproval(spec, token, approvalId, { fetchImpl = fet
 }
 
 async function main() {
+	// gitagent commits memory and task notes in the run's own checkout; those
+	// commits are thrown away with the run (luxd keeps the files), but git
+	// refuses to commit without an identity, and the agent would report that.
+	for (const k of ["GIT_AUTHOR", "GIT_COMMITTER"]) {
+		process.env[`${k}_NAME`] ??= "Lux agent";
+		process.env[`${k}_EMAIL`] ??= "agent@lux.invalid";
+	}
 	const specPath = process.argv[2];
 	if (!specPath) {
 		console.error("usage: runner.mjs <spec.json>");
@@ -162,7 +169,8 @@ async function main() {
 		dir: spec.agent_dir,
 		systemPromptSuffix: [luxNote(spec.workspace_files), repositoryNote(spec.repository)].filter(Boolean).join("\n\n"),
 		// The person's connected accounts, served by luxd: tokens never come here.
-		...(spec.connectors ? { mcpServers: { lux: { type: "http", url: `${spec.api_url}/internal/v1/runs/${spec.run_id}/mcp`, headers: { Authorization: `Bearer ${token}` } } } } : {}),
+		// Every run gets luxd's tools (status, follow-ups, and the person's connected accounts).
+		mcpServers: { lux: { type: "http", url: `${spec.api_url}/internal/v1/runs/${spec.run_id}/mcp`, headers: { Authorization: `Bearer ${token}` } } },
 		model: spec.model,
 		sessionId: spec.run_id,
 		maxTurns,

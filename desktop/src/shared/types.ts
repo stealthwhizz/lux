@@ -221,6 +221,8 @@ export interface ConnectorInfo {
   setup_url?: string;
   /** The sign-in return address an administrator registers with the provider. */
   redirect_uri?: string;
+  /** Slack: "ready" when people can message their agents in Slack. */
+  bot?: "ready" | "not_set_up";
 }
 
 /** A model a provider's key can use (for Lyzr, a Studio agent). */
@@ -233,4 +235,24 @@ export interface ModelProviders {
   providers: { name: string; ready: boolean; source: "" | "server" | "app"; keyless: boolean; note?: string }[];
   default: string;
   can_set: boolean;
+}
+
+/** What an agent reports about its ongoing work (lux__update_status). */
+export interface WorkStatus {
+  job?: string;
+  doing: string;
+  waiting_on?: string[];
+  decisions?: string[];
+  deadlines?: { what: string; when: string }[];
+}
+
+export interface AgentWork {
+  status: { status: WorkStatus; task_id?: string; updated_at: string } | null;
+  follow_ups: Routine[];
+  routines: Routine[];
+}
+
+export interface AgentMemory {
+  text: string;
+  editable: boolean;
 }

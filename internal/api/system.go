@@ -129,6 +129,10 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resp.Components["database"] = "unreachable"
 	}
+	resp.Components["browser"] = "none"
+	if s.Browser != nil {
+		resp.Components["browser"] = "available"
+	}
 	resp.Components["orchestrator"] = "not_running"
 	if s.OrchestratorRunning != nil && s.OrchestratorRunning() {
 		resp.Components["orchestrator"] = "running"

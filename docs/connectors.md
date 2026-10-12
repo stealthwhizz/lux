@@ -82,6 +82,17 @@ After that, people press Connect and approve in Slack.
 
 Lux checks the token with Slack (`auth.test`) before saving it.
 
+## The Lux bot in Slack
+
+Besides letting agents use your Slack, Lux can run a bot so you can **talk to your agents in Slack**: DM the Lux app, start with the agent's name ("Offsite Planner: book the venue") or just keep talking to the last one. Replies come back to the DM, with answer buttons when the agent offers choices, and approvals arrive with **Allow** and **Don't allow** buttons. Everything runs as your own Lux account, under the same rules as the app.
+
+It uses Slack's **Socket Mode**, so the Lux server needs no public address. To turn it on (administrator, once), open the Slack row under Connectors and choose **Set up the Slack bot**:
+
+1. Create the Lux app from the prefilled manifest (the same one Connect uses: it includes the bot, Socket Mode, direct messages and buttons), and install it.
+2. Paste the **Bot User OAuth Token** (`xoxb-`) and an **app-level token** with the `connections:write` scope (`xapp-`, under Basic Information → App-Level Tokens).
+
+Or set `LUX_SLACK_BOT_TOKEN` and `LUX_SLACK_APP_TOKEN` on the server. Each person then connects Slack under Connectors once, which links their Slack account to their Lux account; people Lux doesn't know are told to do that. With several luxd replicas, each reply and approval is posted once.
+
 ## Disconnecting
 
 **Disconnect** deletes the person's stored token. Their agents lose those tools from the next tool call. It doesn't revoke the grant at the provider; to do that, remove Lux in your Google account's security settings, in My Apps (Microsoft), or in Slack's app settings.

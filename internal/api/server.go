@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/open-gitagent/lux/internal/agentrepo"
+	"github.com/open-gitagent/lux/internal/browser"
 	"github.com/open-gitagent/lux/internal/config"
 	"github.com/open-gitagent/lux/internal/connectors"
 	"github.com/open-gitagent/lux/internal/gateway"
@@ -45,6 +46,8 @@ type Server struct {
 	SSEHeartbeat time.Duration
 	// Google is the Google OAuth client; nil means Google is not set up.
 	Google *connectors.Google
+	// Browser gives agents a web browser; nil when the server has none.
+	Browser *browser.Manager
 	// SlackAPI overrides Slack's Web API address (tests).
 	SlackAPI string
 	// MicrosoftEndpoints overrides Microsoft's sign-in and Graph addresses (tests).
@@ -97,6 +100,7 @@ func (s *Server) Handler() http.Handler {
 	auth("POST /v1/connectors/slack/connect", s.connectSlack)
 	auth("PUT /v1/connectors/slack/setup", s.setupSlack)
 	auth("PUT /v1/connectors/slack/token", s.pasteSlackToken)
+	auth("PUT /v1/connectors/slack/bot", s.setupSlackBot)
 	auth("POST /v1/connectors/microsoft/connect", s.connectMicrosoft)
 	auth("PUT /v1/connectors/microsoft/setup", s.setupMicrosoft)
 	auth("POST /v1/tokens", s.createToken)
@@ -108,6 +112,9 @@ func (s *Server) Handler() http.Handler {
 	auth("POST /v1/w/{ws}/agents/new", s.createAgent)
 	auth("GET /v1/w/{ws}/agents/{agent}/definition", s.getDefinition)
 	auth("GET /v1/w/{ws}/agents/{agent}/files", s.listFiles)
+	auth("GET /v1/w/{ws}/agents/{agent}/work", s.getWork)
+	auth("GET /v1/w/{ws}/agents/{agent}/memory", s.getMemory)
+	auth("PUT /v1/w/{ws}/agents/{agent}/memory", s.putMemory)
 	auth("POST /v1/w/{ws}/agents/{agent}/uploads", s.uploadFile)
 	auth("GET /v1/w/{ws}/agents/{agent}/routines", s.listRoutines)
 	auth("POST /v1/w/{ws}/agents/{agent}/routines", s.createRoutine)

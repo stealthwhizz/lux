@@ -357,5 +357,7 @@ test("luxNote tells the agent its workspace persists and is what the person sees
 	assert.match(n, /\.\/workspace\/uploads\//);
 	assert.match(n, /is empty right now/);
 	assert.match(n, /```choices\n/);
+	assert.match(n, /lux__update_status/);
+	assert.match(n, /lux__follow_up/);
 	assert.match(luxNote(["planner.md", "uploads/Offsite plan.docx.txt"]), /- uploads\/Offsite plan\.docx\.txt/);
 });
