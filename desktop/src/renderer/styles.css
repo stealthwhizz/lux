@@ -569,3 +569,13 @@ button.head-btn:hover, button.head-btn[aria-expanded="true"] { background: var(-
 .work-follow { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
 .work-follow .link { margin-left: auto; }
 .memory-text { min-height: 260px; font-size: var(--t-sm); }
+
+/* The agent's browser: watch it, or take it over. */
+.files-panel.browser-panel { width: min(760px, 92%); }
+.browser-bar { display: flex; gap: 6px; padding: 0 14px 10px; }
+.browser-bar .input { flex: 1; min-width: 0; padding: 6px 9px; font-size: var(--t-sm); }
+.browser-body { align-content: start; gap: 8px; }
+.browser-screen { width: 100%; border-radius: 8px; border: 1px solid var(--line-strong); cursor: pointer; background: #fff; }
+.browser-held { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--lamp) 14%, var(--surface)); font-size: var(--t-sm); }
+.browser-type { display: flex; gap: 6px; align-items: center; }
+.browser-type .input { flex: 1; min-width: 0; padding: 6px 9px; font-size: var(--t-sm); }

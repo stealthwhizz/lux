@@ -167,6 +167,26 @@ export const validators = {
   "agents.sync": (a: unknown) => slugOrId(a),
   "agents.delete": (a: unknown) => slugOrId(a),
   "agents.work": (a: unknown) => slugOrId(a),
+  "agents.browser": (a: unknown) => slugOrId(a),
+  "agents.browserRelease": (a: unknown) => slugOrId(a),
+  // One thing the person does in an agent's browser.
+  "agents.browserInput": (a: unknown) => {
+    const o = obj(a, "browser input");
+    onlyKeys(o, ["agent", "type", "x", "y", "text", "key", "dy", "url"], "browser input");
+    const type = str(o.type, "type", { max: 10, re: /^(click|type|key|scroll|open|back)$/ });
+    const num = (v: unknown, name: string, lo: number, hi: number) => {
+      if (v === undefined) return undefined;
+      if (typeof v !== "number" || !Number.isFinite(v) || v < lo || v > hi) throw new ValidationError(`${name} must be a number between ${lo} and ${hi}`);
+      return v;
+    };
+    return {
+      agent: slugOrId(o.agent), type,
+      x: num(o.x, "x", 0, 4000), y: num(o.y, "y", 0, 4000), dy: num(o.dy, "dy", -5000, 5000),
+      text: o.text === undefined ? undefined : str(o.text, "text", { min: 1, max: 2000 }),
+      key: o.key === undefined ? undefined : str(o.key, "key", { max: 12, re: /^(Enter|Tab|Backspace|Escape|ArrowUp|ArrowDown)$/ }),
+      url: o.url === undefined ? undefined : str(o.url, "url", { max: 2000, re: /^https?:\/\/\S+$/ }),
+    };
+  },
   "agents.memory": (a: unknown) => slugOrId(a),
   "agents.setMemory": (a: unknown) => {
     const o = obj(a, "memory");

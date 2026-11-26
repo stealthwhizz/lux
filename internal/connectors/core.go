@@ -25,10 +25,12 @@ var LuxTools = []Tool{
 // BrowserTools drive the agent's own browser (internal/browser), when the
 // server has one. Clicking and typing can submit things, so by default they ask.
 var BrowserTools = []Tool{
-	{Name: "browser_open", Provider: "browser", Description: "Open a web page in your own browser, which keeps your sign-ins. Returns the page's text and its links, buttons and fields, each with a number. To search the web, open https://html.duckduckgo.com/html/?q=your+words and follow a result; don't guess deep links.",
+	{Name: "browser_open", Provider: "browser", Description: "Open a web page in your own browser, which keeps your sign-ins. Returns the page's text and its links, buttons and fields, each with a number. To find pages, use web_search if you have it, then open a result; don't guess deep links.",
 		InputSchema: obj(map[string]any{"url": str("http or https address")}, "url")},
 	{Name: "browser_read", Provider: "browser", Description: "Describe the page your browser is showing now.", InputSchema: obj(map[string]any{})},
 	{Name: "browser_back", Provider: "browser", Description: "Go back to the previous page.", InputSchema: obj(map[string]any{})},
+	{Name: "browser_handoff", Provider: "browser", Description: "Ask the person to do something in your browser that you can't or shouldn't, like signing in or solving a check. They see your browser in Lux, do it, and press Done; then continue.",
+		InputSchema: obj(map[string]any{"reason": str("what you need them to do, e.g. Sign in to booking.com")}, "reason")},
 	{Name: "browser_click", Provider: "browser", Acts: true, Description: "Click a link or button by its number from the last page description.",
 		InputSchema: obj(map[string]any{"ref": map[string]any{"type": "integer", "minimum": 1}}, "ref")},
 	{Name: "browser_type", Provider: "browser", Acts: true, Description: "Type text into a field by its number from the last page description; press_enter submits.",

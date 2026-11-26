@@ -246,6 +246,10 @@ func serve(args []string) error {
 	}
 	srv.ReloadProviders(ctx) // add keys saved in the app
 	go srv.RunSlackBot(ctx)  // idle until an administrator sets the bot up
+	srv.Search = &connectors.Search{SearxURL: cfg.SearchURL, BraveKey: cfg.BraveKey}
+	if !srv.Search.Ready() {
+		log.Info("agents have no web search: set LUX_SEARCH_URL (SearXNG) or LUX_BRAVE_API_KEY")
+	}
 	if bin := browser.Find(cfg.Browser); bin != "" {
 		srv.Browser = &browser.Manager{Bin: bin, DataRoot: filepath.Join(cfg.DataDir, "browser")}
 		defer srv.Browser.Close()

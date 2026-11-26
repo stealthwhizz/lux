@@ -15,6 +15,7 @@ import { AttachmentChips, FileChips, FilesPanel } from "../components/Files";
 import { ModelsList } from "../components/Models";
 import { RoutinesPanel } from "../components/Routines";
 import { MemoryPanel, WorkPanel } from "../components/Work";
+import { BrowserPanel } from "../components/BrowserPanel";
 
 /**
  * The main pane. Each agent is one ongoing thread (target = agent id);
@@ -176,7 +177,7 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
   const { events } = useTaskEvents(active);
   const toast = useToast();
   const body = useRef<HTMLDivElement>(null);
-  const [panel, setPanel] = useState<"" | "files" | "routines" | "work" | "memory">("");
+  const [panel, setPanel] = useState<"" | "files" | "routines" | "work" | "memory" | "browser">("");
   const work = useLoad<AgentWork>(() => lux().agents.work(agent.id), [agent.id]);
   const status = work.data?.status?.status;
   const waiting = status?.waiting_on?.length ?? 0;
@@ -237,6 +238,7 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
               <MenuItems close={closeMenu} items={[
                 { label: "Work", run: () => setPanel("work") },
                 { label: "Memory", run: () => setPanel("memory") },
+                { label: "Browser", run: () => setPanel("browser") },
                 { label: "Files", run: () => setPanel("files") },
                 { label: "Routines", run: () => setPanel("routines") },
                 { label: "Edit", run: () => nav.go("conversations", "edit:" + agent.id) },
@@ -281,12 +283,13 @@ function Thread({ agent, conversationId, needsYou, nav, onChanged }: { agent: Ag
         ))}
         {!active && !agent.disabled && <Choices message={msgs[msgs.length - 1]} onPick={(c) => void send(c, [])} />}
         {agent.disabled && <div className="note">{agent.name} is off. <button className="link" onClick={() => void actions.setOff(agent, false)}>Turn it on</button> to talk to it.</div>}
-        {active && <Activity events={events} approvals={approvals.data ?? []} onDecided={() => { approvals.reload(); onChanged(); }} />}
+        {active && <Activity events={events} approvals={approvals.data ?? []} onDecided={() => { approvals.reload(); onChanged(); }} onOpenBrowser={() => setPanel("browser")} />}
       </div>
       {panel === "files" && <FilesPanel agent={agent.id} onClose={() => setPanel("")} />}
       {panel === "routines" && <RoutinesPanel agent={agent.id} agentName={agent.name} onClose={() => setPanel("")} />}
       {panel === "work" && <WorkPanel agent={agent} active={active} onClose={() => setPanel("")} onChanged={onChanged} openRoutines={() => setPanel("routines")} />}
       {panel === "memory" && <MemoryPanel agent={agent} onClose={() => setPanel("")} />}
+      {panel === "browser" && <BrowserPanel agent={agent} onClose={() => setPanel("")} />}
       <Composer placeholder={active ? `${agent.name} is working` : `Message ${agent.name}`} disabled={!!active || agent.disabled} onSend={send} onStop={active ? stop : undefined}
         onAttach={async () => {
           const r = await lux().files.attach(agent.id);

@@ -189,7 +189,7 @@ export function luxNote(files = []) {
 		"- Whenever your work changes, call lux__update_status (job, doing, waiting_on, decisions, deadlines). The person sees it in your Work panel.",
 		"- When something needs checking later (a reply, a deadline, a price), schedule it with lux__follow_up instead of asking the person to remind you.",
 		"- Save what you learn about the person (preferences, people, recurring facts, decisions) with your memory tool; it is there in every future run.",
-		"- If you have lux__browser_open, you have your own web browser: use it to look things up and to use websites that have no connector.",
+		"- If you have lux__web_search, search with it; if you have lux__browser_open, you have your own web browser for reading and using websites.",
 		"- When you ask the person a question that has a few likely answers, ask one question and end your reply",
 		"  with the answers as a choices block; Lux shows them as buttons (they can still type their own). Exactly:",
 		"```choices",

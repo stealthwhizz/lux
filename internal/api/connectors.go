@@ -230,15 +230,9 @@ type rpcRequest struct {
 // such person and get none.
 func (s *Server) connectorTools(ctx context.Context, t *store.Task) []connectors.Tool {
 	if t.CreatedBy == "" { // no person: no accounts, but its own tools
-		if s.Browser != nil {
-			return append(append([]connectors.Tool{}, connectors.LuxTools...), connectors.BrowserTools...)
-		}
-		return connectors.LuxTools
+		return s.ownTools()
 	}
-	out := append([]connectors.Tool{}, connectors.LuxTools...)
-	if s.Browser != nil {
-		out = append(out, connectors.BrowserTools...)
-	}
+	out := s.ownTools()
 	if c, err := s.Store.GetConnection(ctx, t.CreatedBy, "google"); err == nil && s.google(ctx) != nil {
 		for _, tl := range connectors.GoogleTools {
 			if !strings.HasPrefix(tl.Name, "drive_") || strings.Contains(c.Scopes, connectors.DriveScope) {
@@ -372,6 +366,9 @@ func (s *Server) callConnectorTool(ctx context.Context, t *store.Task, name stri
 	case "browser":
 		provider = "browser"
 		out, err = s.Browser.Run(ctx, t.AgentID, tool.Name, args)
+	case "search":
+		provider = "search"
+		out, err = s.Search.Run(ctx, args)
 	case "slack":
 		provider = "slack"
 		var tok string
@@ -471,3 +468,16 @@ func (s *Server) setupGoogle(w http.ResponseWriter, r *http.Request) {
 }
 
 var googleClientRe = regexp.MustCompile(`^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$`)
+
+// ownTools are the tools every run gets from luxd itself: status and
+// follow-ups, plus the browser and web search when the server has them.
+func (s *Server) ownTools() []connectors.Tool {
+	out := append([]connectors.Tool{}, connectors.LuxTools...)
+	if s.Browser != nil {
+		out = append(out, connectors.BrowserTools...)
+	}
+	if s.Search.Ready() {
+		out = append(out, connectors.SearchTools...)
+	}
+	return out
+}

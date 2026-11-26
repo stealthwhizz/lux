@@ -45,6 +45,8 @@ type Server struct {
 	// SlackBotToken and SlackAppToken run the Lux bot in Slack (Socket Mode);
 	// an administrator can instead set them in the app.
 	SlackBotToken, SlackAppToken string
+	// SearchURL (a SearXNG instance) or BraveKey gives agents web search.
+	SearchURL, BraveKey string
 	// Browser is LUX_BROWSER: a Chrome or Chromium binary for agents' browser,
 	// "off" for none; empty means look for one on PATH.
 	Browser string
@@ -128,6 +130,8 @@ func LoadServer() (Server, error) {
 		Browser:            os.Getenv("LUX_BROWSER"),
 		SlackBotToken:      os.Getenv("LUX_SLACK_BOT_TOKEN"),
 		SlackAppToken:      os.Getenv("LUX_SLACK_APP_TOKEN"),
+		SearchURL:          os.Getenv("LUX_SEARCH_URL"),
+		BraveKey:           os.Getenv("LUX_BRAVE_API_KEY"),
 	}
 	s.RunnerCmd, s.RunnerNote = ResolveRunner()
 	s.MaxConcurrent = 4

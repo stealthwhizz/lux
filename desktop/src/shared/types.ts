@@ -256,3 +256,22 @@ export interface AgentMemory {
   text: string;
   editable: boolean;
 }
+
+/** What the person sees of an agent's browser. */
+export interface BrowserView {
+  open: boolean;
+  held: boolean;
+  title?: string;
+  url?: string;
+  /** JPEG, base64. */
+  image?: string;
+  width?: number;
+}
+
+export type BrowserInput =
+  | { type: "click"; x: number; y: number }
+  | { type: "scroll"; x: number; y: number; dy: number }
+  | { type: "type"; text: string }
+  | { type: "key"; key: "Enter" | "Tab" | "Backspace" | "Escape" | "ArrowUp" | "ArrowDown" }
+  | { type: "open"; url: string }
+  | { type: "back" };

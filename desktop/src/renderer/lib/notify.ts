@@ -4,6 +4,7 @@ import { lux } from "./lux";
 
 /** What an approval asks for, in plain words. */
 export function approvalText(summary: string): string {
+  if (summary.startsWith("lux__browser_handoff: ")) return "Needs you in its browser: " + summary.slice(22, 162);
   const s = summary.replace(/^cli: /, "run ").replace(/^lux__/, "").replace(/\s+/g, " ").trim();
   return "Wants to " + (s.length > 140 ? s.slice(0, 139) + "…" : s);
 }

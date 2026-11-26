@@ -48,6 +48,8 @@ type Server struct {
 	Google *connectors.Google
 	// Browser gives agents a web browser; nil when the server has none.
 	Browser *browser.Manager
+	// Search gives agents web search; nil or not Ready when not set up.
+	Search *connectors.Search
 	// SlackAPI overrides Slack's Web API address (tests).
 	SlackAPI string
 	// MicrosoftEndpoints overrides Microsoft's sign-in and Graph addresses (tests).
@@ -113,6 +115,9 @@ func (s *Server) Handler() http.Handler {
 	auth("GET /v1/w/{ws}/agents/{agent}/definition", s.getDefinition)
 	auth("GET /v1/w/{ws}/agents/{agent}/files", s.listFiles)
 	auth("GET /v1/w/{ws}/agents/{agent}/work", s.getWork)
+	auth("GET /v1/w/{ws}/agents/{agent}/browser", s.getBrowser)
+	auth("POST /v1/w/{ws}/agents/{agent}/browser/input", s.browserInput)
+	auth("POST /v1/w/{ws}/agents/{agent}/browser/release", s.releaseBrowser)
 	auth("GET /v1/w/{ws}/agents/{agent}/memory", s.getMemory)
 	auth("PUT /v1/w/{ws}/agents/{agent}/memory", s.putMemory)
 	auth("POST /v1/w/{ws}/agents/{agent}/uploads", s.uploadFile)

@@ -33,6 +33,8 @@ type session struct {
 	c    *conn
 	page string // DevTools session of the agent's tab
 	last time.Time
+	held bool          // the person has taken the browser over
+	gone chan struct{} // closed when Chrome has exited
 }
 
 // Find returns a Chrome or Chromium binary: LUX_BROWSER, else a common name on PATH.
@@ -115,8 +117,8 @@ func (m *Manager) start(ctx context.Context, agentID string) (*session, error) {
 	}
 	toChrome.Close()
 	theirs.Close()
-	s := &session{cmd: cmd, c: newConn(ours, fromChrome), last: time.Now()}
-	go func() { _ = cmd.Wait(); ours.Close(); fromChrome.Close() }()
+	s := &session{cmd: cmd, c: newConn(ours, fromChrome), last: time.Now(), gone: make(chan struct{})}
+	go func() { _ = cmd.Wait(); ours.Close(); fromChrome.Close(); close(s.gone) }()
 
 	var target struct {
 		TargetID string `json:"targetId"`
@@ -146,6 +148,10 @@ func (s *session) close() {
 	_ = s.c.call(ctx, "", "Browser.close", nil, nil)
 	if s.cmd.Process != nil {
 		_ = s.cmd.Process.Kill()
+	}
+	select { // let Chrome finish writing its profile
+	case <-s.gone:
+	case <-time.After(5 * time.Second):
 	}
 }
 
@@ -189,6 +195,13 @@ func (m *Manager) Run(ctx context.Context, agentID, tool string, args map[string
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.last = time.Now()
+	if tool == "browser_handoff" { // approved: the person says they are done
+		s.held = false
+		return "The person is done. Read the page to see where things are.", nil
+	}
+	if s.held {
+		return "", errHeld
+	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	switch tool {

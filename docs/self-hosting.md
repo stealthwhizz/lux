@@ -76,6 +76,8 @@ luxd reads its settings from the environment. In Compose they come from `deploy/
 | `LUX_SECRET_KEY` | a key luxd creates in its data folder | 32 bytes, base64. Encrypts connector tokens, app secrets and model keys entered in the app. Back it up with the database: without it, people must connect again and administrators must re-enter keys. |
 | `LUX_SANDBOX` | on when bubblewrap works | `off` turns the sandbox executor off. |
 | `LUX_BROWSER` | the first Chrome or Chromium on `PATH` | Gives agents a browser (one per agent, profiles under the data folder, traffic only to public addresses through a luxd proxy). A path to the binary, or `off`. |
+| `LUX_SEARCH_URL` | unset | A SearXNG instance (with `json` in `search.formats`) that gives agents `web_search`. Takes precedence over Brave. |
+| `LUX_BRAVE_API_KEY` | unset | A Brave Search API key, the other way to give agents `web_search`. |
 | `LUX_SLACK_BOT_TOKEN`, `LUX_SLACK_APP_TOKEN` | unset | The Lux bot in Slack (Socket Mode): a bot token (`xoxb-`) and an app-level token (`xapp-`). An administrator can instead set them in the app. See [connectors.md](connectors.md#the-lux-bot-in-slack). |
 | `LUX_GITHUB_API_URL` | `https://api.github.com` | Where pull requests are opened (must be https). |
 | `LUX_ANTHROPIC_WORKSPACE_ID` | unset | Shown to operators only. |

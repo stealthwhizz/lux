@@ -233,6 +233,8 @@ func toolSummary(tool string, args map[string]any) string {
 		detail = c
 	} else if p, ok := args["path"].(string); ok {
 		detail = p
+	} else if r, ok := args["reason"].(string); ok {
+		detail = r // a handoff: what the agent needs the person to do
 	}
 	if len(detail) > 200 {
 		detail = detail[:200] + "…"

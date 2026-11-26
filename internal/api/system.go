@@ -129,6 +129,10 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resp.Components["database"] = "unreachable"
 	}
+	resp.Components["search"] = "none"
+	if s.Search.Ready() {
+		resp.Components["search"] = "available"
+	}
 	resp.Components["browser"] = "none"
 	if s.Browser != nil {
 		resp.Components["browser"] = "available"

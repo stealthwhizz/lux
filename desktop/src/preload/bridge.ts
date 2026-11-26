@@ -3,7 +3,7 @@
 // Tauri) could provide the same object.
 import type { AgentDefinition, ChangeTarget, ImportInput, Operation, PushedEvent, Result, TaskFilter } from "../shared/ipc";
 import type {
-  Agent, AgentMemory, AgentWork, AppInfo, ModelChoice, ModelProviders, Approval, Attachment, Change, ConnectorInfo, Conversation, FilePreview, Repository, Routine, WorkspaceFile, LocalServerStatus, Me, Message, ProfilesState, Report, ServerStatus, Task, TaskEvent,
+  Agent, AgentMemory, AgentWork, AppInfo, BrowserInput, BrowserView, ModelChoice, ModelProviders, Approval, Attachment, Change, ConnectorInfo, Conversation, FilePreview, Repository, Routine, WorkspaceFile, LocalServerStatus, Me, Message, ProfilesState, Report, ServerStatus, Task, TaskEvent,
 } from "../shared/types";
 
 export type Invoke = (op: Operation, args?: unknown) => Promise<Result<unknown>>;
@@ -39,6 +39,9 @@ export function buildBridge(invoke: Invoke, listen: Listen) {
       setDisabled: (agent: string, disabled: boolean) => call<Agent>("agents.setDisabled", { agent, disabled }),
       delete: (agent: string) => call<void>("agents.delete", agent),
       work: (agent: string) => call<AgentWork>("agents.work", agent),
+      browser: (agent: string) => call<BrowserView>("agents.browser", agent),
+      browserInput: (agent: string, input: BrowserInput) => call<BrowserView>("agents.browserInput", { agent, ...input }),
+      browserRelease: (agent: string) => call<null>("agents.browserRelease", agent),
       memory: (agent: string) => call<AgentMemory>("agents.memory", agent),
       setMemory: (agent: string, text: string) => call<AgentMemory>("agents.setMemory", { agent, text }),
       introduce: (agent: string) => call<{ conversation: Conversation }>("agents.introduce", agent),

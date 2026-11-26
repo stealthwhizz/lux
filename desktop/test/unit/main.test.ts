@@ -426,3 +426,30 @@ test("notification text is plain and short", async () => {
   assert.equal(replyText("**Done** — saved `plan.md`\n\n```choices\nA\n```"), "Done — saved plan.md");
   assert.ok(replyText("x ".repeat(200)).length <= 160);
 });
+
+test("the agent's own tools read as plain words, and a handoff asks for the person", async () => {
+  const { stepsFrom } = await import("../../src/renderer/components/Activity");
+  const ev = (seq: number, type: string, payload: any) => ({ seq, type, payload, task_id: "t", created_at: "" }) as any;
+  const steps = stepsFrom([
+    ev(1, "tool.call", { id: "1", name: "lux__web_search", args: { query: "goa weather" } }),
+    ev(2, "tool.result", { id: "1" }),
+    ev(3, "tool.call", { id: "2", name: "lux__browser_open", args: { url: "https://www.booking.com/x" } }),
+    ev(4, "lux.approval_requested", { approval_id: "apr_1", summary: "lux__browser_handoff: Sign in to booking.com" }),
+  ]);
+  assert.equal(steps[0].text, "Searched the web for “goa weather”");
+  assert.equal(steps[1].text, "Opening www.booking.com");
+  assert.equal(steps[2].text, "Needs you in its browser: Sign in to booking.com");
+  assert.equal(steps[2].handoff, "Sign in to booking.com");
+  const done = stepsFrom([ev(4, "lux.approval_requested", { approval_id: "apr_1", summary: "lux__browser_handoff: Sign in" }), ev(5, "lux.approval_decided", { approval_id: "apr_1", decision: "allow" })]);
+  assert.equal(done[0].text, "You did: Sign in");
+});
+
+test("browser input is checked before it leaves the app", async () => {
+  const { validators } = await import("../../src/shared/ipc");
+  const v = validators["agents.browserInput"];
+  assert.deepEqual(JSON.parse(JSON.stringify(v({ agent: "agt_1", type: "click", x: 10, y: 20 }))), { agent: "agt_1", type: "click", x: 10, y: 20 });
+  assert.throws(() => v({ agent: "agt_1", type: "eval", x: 1 }));
+  assert.throws(() => v({ agent: "agt_1", type: "open", url: "file:///etc/passwd" }));
+  assert.throws(() => v({ agent: "agt_1", type: "key", key: "F12" }));
+  assert.throws(() => v({ agent: "agt_1", type: "click", x: -5, y: 1 }));
+});
